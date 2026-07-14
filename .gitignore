@@ -32,3 +32,9 @@ Thumbs.db
 
 .Phase1_Project_Scaffold_DB_Setup
 .HCP_CRM_Implementation_Plan
+
+
+*.md
+/RAEDME.md
+/HCP_CRM_Implementation_Plan.md
+/Phase1_Project_Scaffold_DB_Setup.md
