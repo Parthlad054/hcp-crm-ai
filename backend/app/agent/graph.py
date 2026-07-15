@@ -7,11 +7,9 @@ from app.agent.state import AgentState
 from app.config import settings
 from app.agent.tools.log_interaction import log_interaction_tool
 from app.agent.tools.edit_interaction import edit_interaction_tool
-from app.agent.tools.stubs import (
-    fetch_hcp_history_tool,
-    schedule_follow_up_tool,
-    suggest_talking_points_tool,
-)
+from app.agent.tools.fetch_hcp_history import fetch_hcp_history_tool
+from app.agent.tools.schedule_follow_up import schedule_follow_up_tool
+from app.agent.tools.suggest_talking_points import suggest_talking_points_tool
 
 # Initialize the LLM with the primary model
 llm = ChatGroq(api_key=settings.GROQ_API_KEY, model=settings.GROQ_MODEL)

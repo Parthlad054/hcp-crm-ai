@@ -1,0 +1,78 @@
+### HCP CRM AI - Smoke Tests
+### Use with VS Code REST Client or HTTPie
+
+@baseUrl = http://localhost:8000
+
+### 1. Health Check
+GET {{baseUrl}}/health
+Accept: application/json
+
+---
+
+### 2. Get All HCPs
+GET {{baseUrl}}/hcps/
+Accept: application/json
+
+---
+
+### 3. Create Interaction (Structured Form bypassing NLU)
+POST {{baseUrl}}/interactions/
+Content-Type: application/json
+
+{
+  "hcp_id": 1,
+  "rep_id": "demo_rep",
+  "interaction_date": "2026-07-15",
+  "channel": "in-person",
+  "topics_discussed": ["Efficacy", "Dosage"],
+  "products_discussed": ["WonderDrug"],
+  "sentiment": "positive",
+  "samples_given": {"WonderDrug": 5},
+  "follow_up_required": true,
+  "follow_up_date": "2026-07-22",
+  "summary": "Met with Dr. Smith. Very positive feedback on WonderDrug.",
+  "raw_input": "Manual Form Entry",
+  "source": "form"
+}
+
+---
+
+### 4. Get Interactions for an HCP (assuming HCP ID 1)
+GET {{baseUrl}}/interactions/1
+Accept: application/json
+
+---
+
+### 5. Edit an Interaction (assuming Interaction ID 1)
+PATCH {{baseUrl}}/interactions/1
+Content-Type: application/json
+
+{
+  "sentiment": "neutral",
+  "samples_given": {"WonderDrug": 10},
+  "summary": "Updated summary: Sentiment was neutral, gave 10 samples."
+}
+
+---
+
+### 6. Schedule Follow-up
+POST {{baseUrl}}/follow-ups/
+Content-Type: application/json
+
+{
+  "interaction_id": 1,
+  "due_date": "2026-07-29",
+  "status": "pending",
+  "note": "Send clinical trial data."
+}
+
+---
+
+### 7. Chat Endpoint (Testing LangGraph Agent)
+POST {{baseUrl}}/chat/
+Content-Type: application/json
+
+{
+  "message": "I just met with Dr. Smith. We discussed the new side effects of HealPill. He was neutral. I gave him 2 samples. Please remind me to follow up next Friday.",
+  "session_id": "session_123"
+}

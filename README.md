@@ -89,8 +89,8 @@ python -m app.llm.groq_client
 ```bash
 cd frontend
 npm install
-npm start
-# → http://localhost:3000
+npm run dev
+# → http://localhost:5173
 ```
 
 ---

@@ -1,21 +1,38 @@
-import React from "react";
-
-// Component stubs — implemented in Phase 3 (Frontend)
-// import LogInteractionScreen from "./components/LogInteractionScreen";
-// import InteractionHistory from "./components/InteractionHistory/HCPHistoryList";
+import React, { useState } from "react";
+import HCPSelector from "./components/shared/HCPSelector";
+import HCPHistoryList from "./components/InteractionHistory/HCPHistoryList";
+import ModeToggle from "./components/LogInteractionScreen/ModeToggle";
+import FormView from "./components/LogInteractionScreen/FormView";
+import ChatView from "./components/LogInteractionScreen/ChatView";
+import "./App.css";
 
 function App() {
+  const [mode, setMode] = useState("chat"); // 'chat' or 'form'
+
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <span className="app-logo">💊</span>
-        <h1 className="app-title">AI-First CRM — HCP Module</h1>
-        <span className="app-badge">Phase 1 Scaffold ✓</span>
+      <header className="app-header glass-panel">
+        <div className="header-left">
+          <span className="app-logo">⚕️</span>
+          <h1 className="app-title">HCP CRM AI</h1>
+        </div>
+        <div className="header-right">
+          <span className="user-profile">Dr. Rep</span>
+        </div>
       </header>
+      
       <main className="app-main">
-        <p className="app-placeholder">
-          Backend + Redux skeleton ready. Log Interaction Screen wired in Phase 3.
-        </p>
+        <aside className="app-sidebar">
+          <HCPSelector />
+          <HCPHistoryList />
+        </aside>
+        
+        <section className="app-content">
+          <ModeToggle mode={mode} setMode={setMode} />
+          <div className="view-container">
+            {mode === "form" ? <FormView /> : <ChatView />}
+          </div>
+        </section>
       </main>
     </div>
   );
