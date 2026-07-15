@@ -1,46 +1,40 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import apiClient from "../../api/client";
-
-// ── Async thunks ───────────────────────────────────────────────────────────
+import { mergeFormData } from "./formSlice";
 
 export const sendChatMessage = createAsyncThunk(
   "chat/sendMessage",
-  async ({ message, sessionId }) => {
+  async ({ message, sessionId, currentFormState }, { dispatch }) => {
     const { data } = await apiClient.post("/chat/", {
       message,
       session_id: sessionId,
+      current_form_state: currentFormState ?? null,
     });
+
+    if (data.form_data != null) {
+      dispatch(mergeFormData(data.form_data));
+    }
+
     return data;
   }
 );
 
-// ── Slice ──────────────────────────────────────────────────────────────────
-
 const chatSlice = createSlice({
   name: "chat",
   initialState: {
-    messages: [],       // [{ role: "user"|"agent", content: string }]
     sessionId: null,
-    status: "idle",     // idle | loading | failed
+    status: "idle",
     error: null,
   },
-  reducers: {
-    addUserMessage(state, action) {
-      state.messages.push({ role: "user", content: action.payload });
-    },
-    clearChat(state) {
-      state.messages = [];
-      state.sessionId = null;
-      state.status = "idle";
-    },
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
-      .addCase(sendChatMessage.pending, (state) => { state.status = "loading"; })
+      .addCase(sendChatMessage.pending, (state) => {
+        state.status = "loading";
+      })
       .addCase(sendChatMessage.fulfilled, (state, action) => {
         state.status = "idle";
         state.sessionId = action.payload.session_id;
-        state.messages.push({ role: "agent", content: action.payload.reply });
       })
       .addCase(sendChatMessage.rejected, (state, action) => {
         state.status = "failed";
@@ -49,5 +43,4 @@ const chatSlice = createSlice({
   },
 });
 
-export const { addUserMessage, clearChat } = chatSlice.actions;
 export default chatSlice.reducer;

@@ -1,38 +1,29 @@
-import React, { useState } from "react";
-import HCPSelector from "./components/shared/HCPSelector";
-import HCPHistoryList from "./components/InteractionHistory/HCPHistoryList";
-import ModeToggle from "./components/LogInteractionScreen/ModeToggle";
-import FormView from "./components/LogInteractionScreen/FormView";
-import ChatView from "./components/LogInteractionScreen/ChatView";
+import React from "react";
+import LogScreen from "./components/LogScreen/LogScreen";
 import "./App.css";
 
 function App() {
-  const [mode, setMode] = useState("chat"); // 'chat' or 'form'
-
   return (
     <div className="app-shell">
-      <header className="app-header glass-panel">
-        <div className="header-left">
-          <span className="app-logo">⚕️</span>
-          <h1 className="app-title">HCP CRM AI</h1>
+      <header className="app-header">
+        <div className="header-brand">
+          <span className="header-logo">⚕️</span>
+          <div>
+            <h1 className="header-title">HCP CRM AI</h1>
+            <span className="header-sub">Life Sciences Field CRM</span>
+          </div>
         </div>
         <div className="header-right">
-          <span className="user-profile">Dr. Rep</span>
+          <div className="rep-badge">
+            <span className="rep-avatar">P</span>
+            <span className="rep-name">Demo Rep</span>
+          </div>
         </div>
       </header>
-      
+
+      {/* Full width — no sidebar */}
       <main className="app-main">
-        <aside className="app-sidebar">
-          <HCPSelector />
-          <HCPHistoryList />
-        </aside>
-        
-        <section className="app-content">
-          <ModeToggle mode={mode} setMode={setMode} />
-          <div className="view-container">
-            {mode === "form" ? <FormView /> : <ChatView />}
-          </div>
-        </section>
+        <LogScreen />
       </main>
     </div>
   );

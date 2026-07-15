@@ -88,5 +88,35 @@ Content-Type: application/json
 
 {
   "message": "I just met with Dr. Smith. We discussed the new side effects of HealPill. He was neutral. I gave him 2 samples. Please remind me to follow up next Friday.",
-  "session_id": "session_123"
+  "session_id": "session_123",
+  "current_form_state": {
+    "hcp_name": null,
+    "date": null,
+    "channel": null,
+    "products_discussed": null,
+    "topics_discussed": null,
+    "sentiment": null,
+    "samples_given": null,
+    "follow_up_required": null,
+    "follow_up_date": null
+  }
+}
+
+### 7b. Selective edit via chat (form already filled)
+POST {{baseUrl}}/chat/
+Content-Type: application/json
+
+{
+  "message": "Sorry, the name was actually Dr. John and the sentiment was negative.",
+  "current_form_state": {
+    "hcp_name": "Dr. Smith",
+    "date": "2026-07-15",
+    "channel": "in-person",
+    "products_discussed": ["HealPill"],
+    "topics_discussed": ["side effects"],
+    "sentiment": "neutral",
+    "samples_given": {"HealPill": 2},
+    "follow_up_required": true,
+    "follow_up_date": "2026-07-18"
+  }
 }

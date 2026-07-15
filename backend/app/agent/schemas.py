@@ -2,6 +2,7 @@ from datetime import date
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
+
 class InteractionExtraction(BaseModel):
     """
     Schema for extracting interaction details from a user's free-text input.
@@ -14,16 +15,28 @@ class InteractionExtraction(BaseModel):
     samples_given: Dict[str, Any] = Field(default_factory=dict, description="A dictionary of samples given, where the key is the product and the value is the quantity.")
     follow_up_required: bool = Field(default=False, description="True if a follow-up is required, False otherwise.")
     follow_up_date: Optional[date] = Field(default=None, description="The date the follow up should occur, if requested. YYYY-MM-DD format.")
+    channel: str = Field(default="in-person", description="Interaction channel. One of: in-person, call, email, conference.")
+
 
 class InteractionEditExtraction(BaseModel):
     """
-    Schema for extracting updates to an existing interaction.
+    Schema for extracting updates to an existing interaction / draft form.
     All fields are optional; the LLM should only populate fields that the user explicitly requested to change.
     """
+    hcp_name: Optional[str] = Field(default=None, description="Updated HCP name, only if the user asked to change it.")
     interaction_date: Optional[date] = Field(default=None, description="The new date of the interaction in YYYY-MM-DD format.")
-    topics_discussed: Optional[List[str]] = Field(default=None, description="The updated list of topics discussed.")
-    products_discussed: Optional[List[str]] = Field(default=None, description="The updated list of products discussed.")
-    sentiment: Optional[str] = Field(default=None, description="The updated sentiment: positive, neutral, or negative.")
-    samples_given: Optional[Dict[str, Any]] = Field(default=None, description="The updated samples dictionary.")
-    follow_up_required: Optional[bool] = Field(default=None, description="The updated follow-up requirement.")
-    follow_up_date: Optional[date] = Field(default=None, description="The updated follow-up date.")
+    channel: Optional[str] = Field(default=None, description="Updated channel: in-person, call, email, or conference.")
+    topics_discussed: Optional[List[str]] = Field(default=None, description="The updated list of topics discussed — only if user asked to change topics.")
+    products_discussed: Optional[List[str]] = Field(default=None, description="The updated list of products discussed — only if user asked to change products.")
+    sentiment: Optional[str] = Field(default=None, description="The updated sentiment: positive, neutral, or negative — only if user asked to change sentiment.")
+    samples_given: Optional[Dict[str, Any]] = Field(default=None, description="The updated samples dictionary — only if user asked to change samples.")
+    follow_up_required: Optional[bool] = Field(default=None, description="The updated follow-up requirement — only if user asked to change it.")
+    follow_up_date: Optional[date] = Field(default=None, description="The updated follow-up date — only if user asked to change it.")
+
+
+class TalkingPointsExtraction(BaseModel):
+    """Structured talking points for suggest_talking_points_tool."""
+    topics_discussed: List[str] = Field(
+        description="2-3 concise talking-point topics suitable for the Topics Discussed form field."
+    )
+    reply: str = Field(description="A short conversational summary of the talking points for the rep.")
