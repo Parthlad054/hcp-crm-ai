@@ -50,8 +50,8 @@ def suggest_talking_points_tool(hcp_name: str, product_name: str | None = None) 
             else:
                 product_info = f"Focus on product '{product_name}' (Note: Not found in database)."
                 
-        # 4. Call LLM (using llama-3.3-70b-versatile per requirements)
-        llm = ChatGroq(api_key=settings.GROQ_API_KEY, model="llama-3.3-70b-versatile")
+        # 4. Call LLM (using fallback/larger model per requirements)
+        llm = ChatGroq(api_key=settings.GROQ_API_KEY, model=settings.GROQ_MODEL_FALLBACK)
         
         prompt = (
             f"You are an AI assistant helping a pharmaceutical sales rep prepare for a meeting with Dr. {target_hcp.name}.\n"

@@ -9,7 +9,21 @@ Accept: application/json
 
 ---
 
-### 2. Get All HCPs
+### 2. Create a New HCP (Add a Doctor manually)
+# Edit the fields below and click "Send Request" to add a new doctor.
+POST {{baseUrl}}/hcps/
+Content-Type: application/json
+
+{
+  "name": "Dr. Jane Wilson",
+  "specialty": "Oncologist",
+  "hospital_affiliation": "St. Mary's Hospital",
+  "notes": "Prefers email communication."
+}
+
+---
+
+### 3. Get All HCPs
 GET {{baseUrl}}/hcps/
 Accept: application/json
 

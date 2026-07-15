@@ -101,8 +101,8 @@ npm run dev
 |---|---|
 | `DATABASE_URL` | Postgres connection string |
 | `GROQ_API_KEY` | Your Groq API key |
-| `GROQ_MODEL` | Primary model (default: `gemma2-9b-it`) |
-| `GROQ_MODEL_FALLBACK` | Fallback model (default: `llama-3.3-70b-versatile`) |
+| `GROQ_MODEL` | Primary model (default: `llama-3.3-70b-versatile`) |
+| `GROQ_MODEL_FALLBACK` | Fallback model (default: `llama-3.1-8b-instant`) |
 
 ---
 
