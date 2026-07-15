@@ -70,20 +70,32 @@ def fetch_hcp_history_tool(hcp_name: str) -> str:
             else "Never"
         )
 
-        result = {
-            "hcp_name": target_hcp.name,
-            "specialty": target_hcp.specialty,
-            "last_visit_date": last_visit_date,
-            "recent_interactions": history[:5],
-            "sentiment_trend": sentiments[:5],
-            "open_follow_ups": follow_ups_data,
-        }
-
         form_data = {"hcp_name": target_hcp.name}
-        reply = (
-            f"History for **{target_hcp.name}** (last visit: {last_visit_date}):\n"
-            f"{json.dumps(result, indent=2)}"
-        )
+        
+        reply_lines = [f"### History for **{target_hcp.name}**"]
+        reply_lines.append(f"**Specialty**: {target_hcp.specialty or 'N/A'}")
+        reply_lines.append(f"**Last Visit**: {last_visit_date}")
+        
+        if sentiments:
+            reply_lines.append(f"**Recent Sentiment Trend**: {', '.join(sentiments[:5])}")
+            
+        if follow_ups_data:
+            reply_lines.append("\n**Open Follow-ups**:")
+            for fu in follow_ups_data:
+                date_str = fu.get('due_date') or 'No date'
+                reply_lines.append(f"- {date_str}: {fu.get('note')}")
+                
+        if history:
+            reply_lines.append("\n**Recent Interactions**:")
+            for ix in history[:5]:
+                topics = ix.get('topics')
+                topics_str = ", ".join(topics) if topics else "None"
+                sentiment_str = ix.get('sentiment') or 'neutral'
+                reply_lines.append(f"- **{ix.get('date')}** ({sentiment_str}): {ix.get('summary')} (Topics: {topics_str})")
+        else:
+            reply_lines.append("\n*No previous interactions recorded.*")
+
+        reply = "\n".join(reply_lines)
 
         return tool_envelope(reply, form_data)
 
