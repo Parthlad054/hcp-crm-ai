@@ -1,4 +1,4 @@
-# HCP CRM AI
+# AI-Powered Healthcare CRM
 
 AI-first CRM for pharmaceutical field reps to log Healthcare Professional (HCP) interactions.
 
