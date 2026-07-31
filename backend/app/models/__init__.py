@@ -3,5 +3,6 @@ from app.models.hcp import HCP
 from app.models.interaction import Interaction
 from app.models.product import Product
 from app.models.follow_up import FollowUp
+from app.models.user import User
 
-__all__ = ["HCP", "Interaction", "Product", "FollowUp"]
+__all__ = ["HCP", "Interaction", "Product", "FollowUp", "User"]

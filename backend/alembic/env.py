@@ -7,13 +7,14 @@ Run from the backend/ directory:
     alembic revision --autogenerate -m "initial schema"
     alembic upgrade head
 """
+import sys
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 # ── Load app settings ──────────────────────────────────────────────────────
-import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.config import settings
@@ -28,7 +29,7 @@ if config.config_file_name is not None:
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # Import all models so their tables are in Base.metadata
-import app.models  # noqa: F401 — triggers __init__.py re-exports
+import app.models  # noqa: F401 — triggers __init__.py re-exports (includes User)
 
 target_metadata = Base.metadata
 

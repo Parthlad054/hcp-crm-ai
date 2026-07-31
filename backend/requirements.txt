@@ -9,3 +9,11 @@ python-dotenv
 langgraph
 langchain-groq
 groq
+# Auth
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+pydantic[email]
+# SMTP email
+aiosmtplib
+email-validator

@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import interactionsReducer from "./slices/interactionsSlice";
 import chatReducer from "./slices/chatSlice";
 import formReducer from "./slices/formSlice";
+import authReducer from "./slices/authSlice";
 
 const loadState = () => {
   try {
@@ -18,6 +19,14 @@ const saveState = (state) => {
     const stateToSave = {
       chat: state.chat,
       form: state.form,
+      // Persist only tokens — not loading/error states
+      auth: {
+        accessToken: state.auth.accessToken,
+        refreshToken: state.auth.refreshToken,
+        user: state.auth.user,
+        status: "idle",
+        error: null,
+      },
     };
     const serializedState = JSON.stringify(stateToSave);
     localStorage.setItem("hcp_crm_state", serializedState);
@@ -31,6 +40,7 @@ export const store = configureStore({
     interactions: interactionsReducer,
     chat: chatReducer,
     form: formReducer,
+    auth: authReducer,
   },
   preloadedState: loadState(),
 });
