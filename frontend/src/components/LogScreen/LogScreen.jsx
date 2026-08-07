@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { createInteraction } from "../../redux/slices/interactionsSlice";
 import { setFormField, resetForm } from "../../redux/slices/formSlice";
+import { resetSession } from "../../redux/slices/chatSlice";
 import apiClient from "../../api/client";
 import AIAssistant from "./AIAssistant";
 
@@ -15,6 +16,7 @@ const LogScreen = () => {
   const isAiFilled = form.isAiFilled;
 
   const [submitStatus, setSubmitStatus] = useState(null);
+  const [chatResetKey, setChatResetKey] = useState(0);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -73,6 +75,8 @@ const LogScreen = () => {
       if (createInteraction.fulfilled.match(result)) {
         setSubmitStatus("success");
         dispatch(resetForm());
+        dispatch(resetSession());
+        setChatResetKey((k) => k + 1);
       } else {
         setSubmitStatus("error");
       }
@@ -252,7 +256,7 @@ const LogScreen = () => {
         </form>
       </div>
 
-      <AIAssistant />
+      <AIAssistant resetKey={chatResetKey} />
     </div>
   );
 };

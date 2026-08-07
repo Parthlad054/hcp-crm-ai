@@ -26,7 +26,13 @@ const chatSlice = createSlice({
     status: "idle",
     error: null,
   },
-  reducers: {},
+  reducers: {
+    resetSession: (state) => {
+      state.sessionId = null;
+      state.status = "idle";
+      state.error = null;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(sendChatMessage.pending, (state) => {
@@ -43,4 +49,5 @@ const chatSlice = createSlice({
   },
 });
 
+export const { resetSession } = chatSlice.actions;
 export default chatSlice.reducer;

@@ -11,7 +11,7 @@ const WELCOME = {
     'To correct a field later, say e.g. "Sorry, the name was actually Dr. John and the sentiment was negative."',
 };
 
-const AIAssistant = () => {
+const AIAssistant = ({ resetKey }) => {
   const dispatch = useDispatch();
   const currentFormState = useSelector(selectCurrentFormState);
   const sessionId = useSelector((s) => s.chat.sessionId);
@@ -20,6 +20,12 @@ const AIAssistant = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
+
+  // When resetKey changes, start a fresh chat
+  useEffect(() => {
+    setMessages([WELCOME]);
+    setInput("");
+  }, [resetKey]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
