@@ -126,10 +126,12 @@ const AIAssistant = ({ resetKey }) => {
 
       <form className="ai-input-row" onSubmit={sendMessage}>
         <input
+          id="chat-input"
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Describe interaction here via chat..."
+          aria-label="Describe interaction here via chat"
           disabled={loading}
         />
         <button type="submit" className="ai-send-btn" disabled={loading || !input.trim()}>

@@ -3,16 +3,16 @@ import { useSelector } from "react-redux";
 import { selectIsAuthenticated } from "../../redux/slices/authSlice";
 
 /**
- * ProtectedRoute — wraps any component that requires authentication.
- * If the user is not logged in, it renders null (App.jsx handles the redirect).
+ * ProtectedRoute — wraps components that require authentication.
+ * If not authenticated, renders the fallback component (e.g. LoginPage / SignUpPage).
  */
-export default function ProtectedRoute({ children }) {
+export default function ProtectedRoute({ children, fallback }) {
   const isAuthenticated = useSelector(selectIsAuthenticated);
 
   if (!isAuthenticated) {
-    // App.jsx will render LoginPage instead; this component simply returns null
-    return null;
+    return fallback || null;
   }
 
   return children;
 }
+

@@ -5,9 +5,15 @@ import apiClient from "../../api/client";
 
 export const createInteraction = createAsyncThunk(
   "interactions/create",
-  async (payload) => {
-    const { data } = await apiClient.post("/interactions/", payload);
-    return data;
+  async (payload, { rejectWithValue }) => {
+    try {
+      const { data } = await apiClient.post("/interactions/", payload);
+      return data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.detail || err.message || "Failed to log interaction"
+      );
+    }
   }
 );
 
@@ -31,7 +37,7 @@ const interactionsSlice = createSlice({
       })
       .addCase(createInteraction.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       });
   },
 });

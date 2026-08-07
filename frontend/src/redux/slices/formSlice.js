@@ -81,12 +81,12 @@ export const selectCurrentFormState = (state) => {
     hcp_name: f.hcp_name || null,
     date: f.interaction_date || null,
     channel: f.channel || null,
-    products_discussed: f.products_discussed
+    products_discussed: typeof f.products_discussed === "string"
       ? f.products_discussed.split(",").map((s) => s.trim()).filter(Boolean)
-      : [],
-    topics_discussed: f.topics_discussed
+      : Array.isArray(f.products_discussed) ? f.products_discussed : [],
+    topics_discussed: typeof f.topics_discussed === "string"
       ? f.topics_discussed.split(",").map((s) => s.trim()).filter(Boolean)
-      : [],
+      : Array.isArray(f.topics_discussed) ? f.topics_discussed : [],
     sentiment: f.sentiment || null,
     samples_given: f.samples_given || {},
     follow_up_required: f.follow_up_required,

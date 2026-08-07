@@ -5,7 +5,12 @@ from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
 
-from app.agent.form_context import reset_current_form_state, set_current_form_state
+from app.agent.form_context import (
+    reset_current_form_state,
+    set_current_form_state,
+    reset_current_rep_id,
+    set_current_rep_id,
+)
 from app.agent.state import AgentState
 from app.agent.tool_response import parse_tool_envelope
 from app.config import settings
@@ -59,14 +64,16 @@ def should_continue(state: AgentState) -> Literal["tools", "response"]:
 
 def tools_node(state: AgentState) -> dict:
     """
-    Wrap ToolNode so edit_interaction can read current_form_state via ContextVar,
+    Wrap ToolNode so tools can read current_form_state and rep_id via ContextVar,
     then lift reply/form_data from tool envelopes into graph state.
     """
-    token = set_current_form_state(state.get("current_form_state"))
+    form_token = set_current_form_state(state.get("current_form_state"))
+    rep_token = set_current_rep_id(state.get("rep_id"))
     try:
         result = _base_tool_node.invoke(state)
     finally:
-        reset_current_form_state(token)
+        reset_current_form_state(form_token)
+        reset_current_rep_id(rep_token)
 
     form_data = None
     reply = None

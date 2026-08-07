@@ -11,8 +11,8 @@ class Interaction(Base):
     __tablename__ = "interactions"
 
     id = Column(Integer, primary_key=True, index=True)
-    hcp_id = Column(Integer, ForeignKey("hcps.id"), nullable=False)
-    rep_id = Column(String(255))
+    hcp_id = Column(Integer, ForeignKey("hcps.id"), nullable=False, index=True)
+    rep_id = Column(String(255), index=True)
     interaction_date = Column(Date, nullable=False)
     channel = Column(String(50))                          # in-person / call / email
     topics_discussed = Column(ARRAY(Text))

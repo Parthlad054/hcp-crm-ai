@@ -16,6 +16,10 @@ from app.database import SessionLocal
 from app.models.hcp import HCP
 from app.models.interaction import Interaction
 
+# ── Module-level LLM (created once at startup, shared across all requests) ─────
+_llm = ChatGroq(api_key=settings.GROQ_API_KEY, model=settings.GROQ_MODEL)
+_structured_edit_llm = _llm.with_structured_output(InteractionEditExtraction)
+
 EDIT_SYSTEM_PROMPT = (
     "Given the CURRENT_FORM (JSON) and a USER_CORRECTION (text), return a JSON object "
     "containing ONLY the fields that need to change based on the correction. "
@@ -93,16 +97,13 @@ def edit_interaction_tool(change_request: str, reference: str = "") -> str:
             None,
         )
 
-    llm = ChatGroq(api_key=settings.GROQ_API_KEY, model=settings.GROQ_MODEL)
-    structured_llm = llm.with_structured_output(InteractionEditExtraction)
-
     user_prompt = (
         f"CURRENT_FORM:\n{json.dumps(current_form, indent=2, default=str)}\n\n"
         f"USER_CORRECTION:\n{change_request}"
     )
 
     try:
-        patch: InteractionEditExtraction = structured_llm.invoke(
+        patch: InteractionEditExtraction = _structured_edit_llm.invoke(
             [
                 SystemMessage(content=EDIT_SYSTEM_PROMPT),
                 HumanMessage(content=user_prompt),
@@ -167,7 +168,7 @@ def edit_interaction_tool(change_request: str, reference: str = "") -> str:
                     summary_prompt = (
                         f"Summarize this updated interaction in 1-2 sentences: {new_data_str}"
                     )
-                    summary_response = llm.invoke([HumanMessage(content=summary_prompt)])
+                    summary_response = _llm.invoke([HumanMessage(content=summary_prompt)])
                     interaction_to_edit.summary = summary_response.content
                     merged_form["summary"] = summary_response.content
                     db.commit()

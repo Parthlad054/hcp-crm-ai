@@ -16,6 +16,11 @@ class DateExtraction(BaseModel):
     note: str = Field(description="A clean summary of what the follow-up entails.")
 
 
+# ── Module-level LLM (created once at startup, shared across all requests) ─────
+_llm = ChatGroq(api_key=settings.GROQ_API_KEY, model=settings.GROQ_MODEL)
+_structured_date_llm = _llm.with_structured_output(DateExtraction)
+
+
 @tool
 def schedule_follow_up_tool(hcp_name: str, follow_up_detail: str) -> str:
     """
@@ -56,9 +61,6 @@ def schedule_follow_up_tool(hcp_name: str, follow_up_detail: str) -> str:
                 None,
             )
 
-        llm = ChatGroq(api_key=settings.GROQ_API_KEY, model=settings.GROQ_MODEL)
-        structured_llm = llm.with_structured_output(DateExtraction)
-
         today_str = datetime.date.today().strftime("%Y-%m-%d")
         prompt = (
             f"Today is {today_str}. The user said: '{follow_up_detail}'. "
@@ -66,7 +68,7 @@ def schedule_follow_up_tool(hcp_name: str, follow_up_detail: str) -> str:
         )
 
         try:
-            extraction = structured_llm.invoke(prompt)
+            extraction = _structured_date_llm.invoke(prompt)
         except Exception as e:
             return tool_envelope(
                 f"Failed to understand the date or details from the input. Error: {str(e)}",

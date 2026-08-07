@@ -98,6 +98,9 @@ const authSlice = createSlice({
         state.status = "succeeded";
         state.accessToken = action.payload.access_token;
         state.refreshToken = action.payload.refresh_token;
+        if (action.payload.user) {
+          state.user = action.payload.user;
+        }
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.status = "failed";
@@ -114,6 +117,9 @@ const authSlice = createSlice({
         state.status = "succeeded";
         state.accessToken = action.payload.access_token;
         state.refreshToken = action.payload.refresh_token;
+        if (action.payload.user) {
+          state.user = action.payload.user;
+        }
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.status = "failed";
@@ -125,6 +131,9 @@ const authSlice = createSlice({
       .addCase(refreshAccessToken.fulfilled, (state, action) => {
         state.accessToken = action.payload.access_token;
         state.refreshToken = action.payload.refresh_token;
+        if (action.payload.user) {
+          state.user = action.payload.user;
+        }
       })
       .addCase(refreshAccessToken.rejected, (state) => {
         // Token refresh failed — force logout

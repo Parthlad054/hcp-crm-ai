@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser, selectAuthStatus, selectAuthError, clearError } from "../../redux/slices/authSlice";
+import apiClient from "../../api/client";
 import "./Auth.css";
 
 // ── Icons (inline SVG as components) ─────────────────────────────────────────
@@ -44,20 +45,11 @@ function ForgotPasswordPanel({ onBack }) {
     if (!email) { setError("Please enter your email address."); return; }
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      if (res.ok) {
-        setStep("success");
-        setSuccess("A password reset link has been sent to your email.");
-      } else {
-        const data = await res.json();
-        setError(data.detail || "Something went wrong.");
-      }
-    } catch {
-      setError("Network error. Please try again.");
+      await apiClient.post("/auth/forgot-password", { email });
+      setStep("success");
+      setSuccess("A password reset link has been sent to your email.");
+    } catch (err) {
+      setError(err.response?.data?.detail || "Something went wrong.");
     } finally {
       setLoading(false);
     }
@@ -71,20 +63,11 @@ function ForgotPasswordPanel({ onBack }) {
     if (newPwd !== confirmPwd) { setError("Passwords do not match."); return; }
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, new_password: newPwd }),
-      });
-      if (res.ok) {
-        setSuccess("Password reset successfully! You can now log in.");
-        setTimeout(onBack, 2500);
-      } else {
-        const data = await res.json();
-        setError(data.detail || "Invalid or expired token.");
-      }
-    } catch {
-      setError("Network error. Please try again.");
+      await apiClient.post("/auth/reset-password", { token, new_password: newPwd });
+      setSuccess("Password reset successfully! You can now log in.");
+      setTimeout(onBack, 2500);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Invalid or expired token.");
     } finally {
       setLoading(false);
     }
@@ -257,7 +240,13 @@ export default function LoginPage({ onNavigateSignUp }) {
         <p className="auth-subtitle">Sign in to your account to continue</p>
 
         {apiError && (
-          <div className="auth-alert error" role="alert">{apiError}</div>
+          <div className="auth-alert error" role="alert">
+            {Array.isArray(apiError)
+              ? apiError.map((e) => e.msg || JSON.stringify(e)).join(", ")
+              : typeof apiError === "string"
+              ? apiError
+              : "Login failed. Please check your details."}
+          </div>
         )}
 
         <form id="login-form" className="auth-form" onSubmit={handleSubmit} noValidate>

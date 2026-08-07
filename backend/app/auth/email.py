@@ -11,8 +11,10 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# The frontend URL where the reset form lives
-FRONTEND_RESET_URL = "http://localhost:5173/reset-password"
+# The frontend URL where the reset form lives.
+# Reads from FRONTEND_URL in .env — defaults to localhost for dev,
+# override per environment (staging / production).
+FRONTEND_RESET_URL = f"{settings.FRONTEND_URL}/reset-password"
 
 
 async def send_reset_email(to_email: str, user_name: str, reset_token: str) -> None:

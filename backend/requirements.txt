@@ -11,9 +11,13 @@ langchain-groq
 groq
 # Auth
 python-jose[cryptography]
-passlib[bcrypt]
+bcrypt
 python-multipart
 pydantic[email]
 # SMTP email
 aiosmtplib
 email-validator
+# Rate limiting
+slowapi
+# In-memory TTL cache
+cachetools

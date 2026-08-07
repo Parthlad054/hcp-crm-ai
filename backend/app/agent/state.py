@@ -11,9 +11,12 @@ class AgentState(TypedDict):
     - current_form_state: Draft form from the left panel (for selective edits).
     - form_data: Structured fields to merge into the left panel (or null).
     - reply: Final assistant reply string surfaced by /chat.
+    - rep_id: Authenticated sales representative identifier (email/ID).
     """
     messages: Annotated[list[AnyMessage], add_messages]
     session_id: str | None
     current_form_state: dict[str, Any] | None
     form_data: dict[str, Any] | None
     reply: str | None
+    rep_id: str | None
+

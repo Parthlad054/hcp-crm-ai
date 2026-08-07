@@ -4,18 +4,24 @@ import { mergeFormData } from "./formSlice";
 
 export const sendChatMessage = createAsyncThunk(
   "chat/sendMessage",
-  async ({ message, sessionId, currentFormState }, { dispatch }) => {
-    const { data } = await apiClient.post("/chat/", {
-      message,
-      session_id: sessionId,
-      current_form_state: currentFormState ?? null,
-    });
+  async ({ message, sessionId, currentFormState }, { dispatch, rejectWithValue }) => {
+    try {
+      const { data } = await apiClient.post("/chat/", {
+        message,
+        session_id: sessionId,
+        current_form_state: currentFormState ?? null,
+      });
 
-    if (data.form_data != null) {
-      dispatch(mergeFormData(data.form_data));
+      if (data.form_data != null) {
+        dispatch(mergeFormData(data.form_data));
+      }
+
+      return data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.detail || err.message || "Failed to send message"
+      );
     }
-
-    return data;
   }
 );
 
@@ -37,6 +43,7 @@ const chatSlice = createSlice({
     builder
       .addCase(sendChatMessage.pending, (state) => {
         state.status = "loading";
+        state.error = null;
       })
       .addCase(sendChatMessage.fulfilled, (state, action) => {
         state.status = "idle";
@@ -44,7 +51,7 @@ const chatSlice = createSlice({
       })
       .addCase(sendChatMessage.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       });
   },
 });

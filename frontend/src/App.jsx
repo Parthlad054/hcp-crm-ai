@@ -9,6 +9,7 @@ import {
 import LogScreen from "./components/LogScreen/LogScreen";
 import LoginPage from "./components/Auth/LoginPage";
 import SignUpPage from "./components/Auth/SignUpPage";
+import ProtectedRoute from "./components/Auth/ProtectedRoute";
 import "./App.css";
 
 function App() {
@@ -30,70 +31,61 @@ function App() {
     dispatch(logout());
   };
 
-  // ── Not authenticated: show auth pages ──────────────────────────────────────
-  if (!isAuthenticated) {
-    if (authPage === "signup") {
-      return (
-        <SignUpPage
-          onNavigateLogin={() => setAuthPage("login")}
-        />
-      );
-    }
-    return (
-      <LoginPage
-        onNavigateSignUp={() => setAuthPage("signup")}
-      />
-    );
-  }
+  const authFallback = authPage === "signup" ? (
+    <SignUpPage onNavigateLogin={() => setAuthPage("login")} />
+  ) : (
+    <LoginPage onNavigateSignUp={() => setAuthPage("signup")} />
+  );
 
-  // ── Authenticated: show the main app ────────────────────────────────────────
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div className="header-brand">
-          <span className="header-logo">⚕️</span>
-          <div>
-            <h1 className="header-title">HCP CRM AI</h1>
-            <span className="header-sub">Life Sciences Field CRM</span>
+    <ProtectedRoute fallback={authFallback}>
+      <div className="app-shell">
+        <header className="app-header">
+          <div className="header-brand">
+            <span className="header-logo">⚕️</span>
+            <div>
+              <h1 className="header-title">HCP CRM AI</h1>
+              <span className="header-sub">Life Sciences Field CRM</span>
+            </div>
           </div>
-        </div>
-        <div className="header-right">
-          <div className="rep-badge">
-            <span className="rep-avatar">
-              {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "U"}
-            </span>
-            <span className="rep-name">
-              {currentUser?.name || "User"}
-            </span>
+          <div className="header-right">
+            <div className="rep-badge">
+              <span className="rep-avatar">
+                {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "U"}
+              </span>
+              <span className="rep-name">
+                {currentUser?.name || "User"}
+              </span>
+            </div>
+            <button
+              id="logout-btn"
+              onClick={handleLogout}
+              style={{
+                marginLeft: 12,
+                padding: "6px 14px",
+                background: "transparent",
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                cursor: "pointer",
+                fontSize: 13,
+                color: "#475569",
+                fontFamily: "inherit",
+                fontWeight: 500,
+                transition: "background 0.15s",
+              }}
+              onMouseEnter={(e) => (e.target.style.background = "#f1f5f9")}
+              onMouseLeave={(e) => (e.target.style.background = "transparent")}
+            >
+              Sign out
+            </button>
           </div>
-          <button
-            id="logout-btn"
-            onClick={handleLogout}
-            style={{
-              marginLeft: 12,
-              padding: "6px 14px",
-              background: "transparent",
-              border: "1px solid #e2e8f0",
-              borderRadius: 8,
-              cursor: "pointer",
-              fontSize: 13,
-              color: "#475569",
-              fontFamily: "inherit",
-              fontWeight: 500,
-              transition: "background 0.15s",
-            }}
-            onMouseEnter={(e) => (e.target.style.background = "#f1f5f9")}
-            onMouseLeave={(e) => (e.target.style.background = "transparent")}
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
+        </header>
 
-      <main className="app-main">
-        <LogScreen />
-      </main>
-    </div>
+        <main className="app-main">
+          <LogScreen />
+        </main>
+      </div>
+    </ProtectedRoute>
   );
 }
 

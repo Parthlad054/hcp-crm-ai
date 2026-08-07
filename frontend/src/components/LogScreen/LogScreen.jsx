@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { createInteraction } from "../../redux/slices/interactionsSlice";
 import { setFormField, resetForm } from "../../redux/slices/formSlice";
 import { resetSession } from "../../redux/slices/chatSlice";
+import { selectCurrentUser } from "../../redux/slices/authSlice";
 import apiClient from "../../api/client";
 import AIAssistant from "./AIAssistant";
 
@@ -13,10 +14,19 @@ const LogScreen = () => {
   const dispatch = useDispatch();
   const { status } = useSelector((state) => state.interactions);
   const form = useSelector((state) => state.form);
+  const currentUser = useSelector(selectCurrentUser);
   const isAiFilled = form.isAiFilled;
 
   const [submitStatus, setSubmitStatus] = useState(null);
   const [chatResetKey, setChatResetKey] = useState(0);
+
+  // Auto-dismiss status banner after 4 seconds
+  useEffect(() => {
+    if (submitStatus) {
+      const timer = setTimeout(() => setSubmitStatus(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [submitStatus]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -26,10 +36,37 @@ const LogScreen = () => {
     setSubmitStatus(null);
   };
 
+  // Convert samples_given object to a user-editable text string
+  const samplesText = typeof form.samples_given === "object" && form.samples_given !== null
+    ? Object.entries(form.samples_given)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(", ")
+    : String(form.samples_given || "");
+
+  const handleSamplesChange = (e) => {
+    const rawStr = e.target.value;
+    const dict = {};
+    if (rawStr.trim()) {
+      rawStr.split(",").forEach((part) => {
+        const [prod, qty] = part.split(":").map((s) => s.trim());
+        if (prod) {
+          dict[prod] = qty && !isNaN(qty) ? Number(qty) : qty || 1;
+        }
+      });
+    }
+    dispatch(setFormField({ name: "samples_given", value: dict }));
+    setSubmitStatus(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.hcp_name.trim()) {
       setSubmitStatus("no_hcp");
+      return;
+    }
+
+    if (form.follow_up_required && !form.follow_up_date) {
+      setSubmitStatus("no_followup_date");
       return;
     }
 
@@ -49,9 +86,11 @@ const LogScreen = () => {
         hcpId = newHcp.id;
       }
 
+      const repId = currentUser?.email || currentUser?.name || currentUser?.id || "demo_rep";
+
       const payload = {
         hcp_id: hcpId,
-        rep_id: "demo_rep",
+        rep_id: String(repId),
         interaction_date: form.interaction_date,
         channel: form.channel,
         sentiment: form.sentiment,
@@ -192,6 +231,19 @@ const LogScreen = () => {
             </div>
 
             <div className="form-group">
+              <label htmlFor="samples_given">Samples Given</label>
+              <input
+                id="samples_given"
+                type="text"
+                name="samples_given_input"
+                value={samplesText}
+                onChange={handleSamplesChange}
+                placeholder="e.g. Neurocalm: 5, HealPill: 2"
+                className={hl("samples_given")}
+              />
+            </div>
+
+            <div className="form-group">
               <label htmlFor="summary">Summary / Notes</label>
               <textarea
                 id="summary"
@@ -225,6 +277,7 @@ const LogScreen = () => {
                   value={form.follow_up_date}
                   onChange={handleChange}
                   className={hl("follow_up_date")}
+                  required={form.follow_up_required}
                 />
               </div>
             )}
@@ -243,6 +296,11 @@ const LogScreen = () => {
           {submitStatus === "no_hcp" && (
             <div className="form-status error">
               ❌ Please enter an HCP name before submitting.
+            </div>
+          )}
+          {submitStatus === "no_followup_date" && (
+            <div className="form-status error">
+              ❌ Please select a follow-up date since follow-up is checked.
             </div>
           )}
 

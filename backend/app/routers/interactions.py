@@ -1,42 +1,84 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.auth.security import get_current_user
 from app.database import get_db
 from app.models.interaction import Interaction
+from app.models.user import User
 from app.schemas.interaction import InteractionCreate, InteractionPatch, InteractionOut
 
 router = APIRouter()
 
 
 @router.post("/", response_model=InteractionOut, status_code=201)
-def create_interaction(payload: InteractionCreate, db: Session = Depends(get_db)):
+def create_interaction(
+    payload: InteractionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
     Create a new interaction via the structured form (bypasses NLU).
-    The agent uses this same logic internally for the log_interaction tool.
+    Requires active user authentication.
     """
-    interaction = Interaction(**payload.model_dump())
+    data = payload.model_dump()
+    if not data.get("rep_id"):
+        data["rep_id"] = current_user.email
+    interaction = Interaction(**data)
     db.add(interaction)
     db.commit()
     db.refresh(interaction)
     return interaction
 
 
+# ── GET / must be registered BEFORE GET /{hcp_id} ────────────────────────────
+# FastAPI matches routes in registration order. If the wildcard /{hcp_id} were
+# first, a future path like GET /export or GET /recent would be silently
+# captured by it instead of matching its own handler.
+
+@router.get("/", response_model=List[InteractionOut])
+def list_all_interactions(
+    skip: int = Query(default=0, ge=0, description="Number of records to skip"),
+    limit: int = Query(default=50, ge=1, le=200, description="Max records to return"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all interactions (dev / debug use). Supports pagination via skip & limit."""
+    return (
+        db.query(Interaction)
+        .order_by(Interaction.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
 @router.get("/{hcp_id}", response_model=List[InteractionOut])
-def get_interactions_for_hcp(hcp_id: int, db: Session = Depends(get_db)):
-    """Return all interactions for a given HCP, newest first."""
+def get_interactions_for_hcp(
+    hcp_id: int,
+    skip: int = Query(default=0, ge=0, description="Number of records to skip"),
+    limit: int = Query(default=50, ge=1, le=200, description="Max records to return"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return all interactions for a given HCP, newest first. Supports pagination."""
     return (
         db.query(Interaction)
         .filter(Interaction.hcp_id == hcp_id)
         .order_by(Interaction.interaction_date.desc())
+        .offset(skip)
+        .limit(limit)
         .all()
     )
 
 
 @router.patch("/{interaction_id}", response_model=InteractionOut)
 def patch_interaction(
-    interaction_id: int, payload: InteractionPatch, db: Session = Depends(get_db)
+    interaction_id: int,
+    payload: InteractionPatch,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Partial update — only supplied fields are written."""
     interaction = db.query(Interaction).filter(Interaction.id == interaction_id).first()
@@ -50,9 +92,3 @@ def patch_interaction(
     db.commit()
     db.refresh(interaction)
     return interaction
-
-
-@router.get("/", response_model=List[InteractionOut])
-def list_all_interactions(db: Session = Depends(get_db)):
-    """List all interactions (dev / debug use)."""
-    return db.query(Interaction).order_by(Interaction.created_at.desc()).all()

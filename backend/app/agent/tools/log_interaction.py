@@ -3,12 +3,17 @@ from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage
 from langchain_groq import ChatGroq
 
+from app.agent.form_context import get_current_rep_id
 from app.agent.schemas import InteractionExtraction
 from app.agent.tool_response import extracted_to_form_data, tool_envelope
 from app.config import settings
 from app.database import SessionLocal
 from app.models.hcp import HCP
 from app.models.interaction import Interaction
+
+# ── Module-level LLM (created once at startup, shared across all requests) ─────
+_llm = ChatGroq(api_key=settings.GROQ_API_KEY, model=settings.GROQ_MODEL)
+_structured_llm = _llm.with_structured_output(InteractionExtraction)
 
 
 @tool
@@ -19,14 +24,11 @@ def log_interaction_tool(text: str) -> str:
     Provide the raw free text containing details about the interaction.
     Returns a reply plus structured form_data for the UI.
     """
-    llm = ChatGroq(api_key=settings.GROQ_API_KEY, model=settings.GROQ_MODEL)
-    structured_llm = llm.with_structured_output(InteractionExtraction)
-
     today_str = datetime.date.today().strftime("%Y-%m-%d")
     prompt = f"Today is {today_str}. Extract the interaction details from the following text:\n\n{text}"
 
     try:
-        extracted: InteractionExtraction = structured_llm.invoke(prompt)
+        extracted: InteractionExtraction = _structured_llm.invoke(prompt)
     except Exception as e:
         return tool_envelope(
             f"Failed to extract interaction details. Please provide clearer information. Error: {str(e)}",
@@ -35,7 +37,7 @@ def log_interaction_tool(text: str) -> str:
 
     # Generate a short summary for both DB and form
     summary_prompt = f"Summarize this interaction in 1-2 sentences: {text}"
-    summary_response = llm.invoke([HumanMessage(content=summary_prompt)])
+    summary_response = _llm.invoke([HumanMessage(content=summary_prompt)])
     summary_text = summary_response.content
 
     channel = extracted.channel if extracted.channel else "in-person"
@@ -63,9 +65,11 @@ def log_interaction_tool(text: str) -> str:
         target_hcp = matching_hcps[0]
         form_data["hcp_name"] = target_hcp.name
 
+        rep_id = get_current_rep_id() or "demo_rep"
+
         new_interaction = Interaction(
             hcp_id=target_hcp.id,
-            rep_id="demo_rep",
+            rep_id=rep_id,
             interaction_date=extracted.interaction_date,
             channel=channel,
             topics_discussed=extracted.topics_discussed,

@@ -1,6 +1,8 @@
+import threading
 from langchain_core.tools import tool
-from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage
+from langchain_groq import ChatGroq
+from cachetools import TTLCache
 
 from app.agent.schemas import TalkingPointsExtraction
 from app.agent.tool_response import tool_envelope
@@ -9,6 +11,16 @@ from app.database import SessionLocal
 from app.models.hcp import HCP
 from app.models.interaction import Interaction
 from app.models.product import Product
+
+# ── Module-level LLM (created once at startup, shared across all requests) ─────
+_llm = ChatGroq(api_key=settings.GROQ_API_KEY, model=settings.GROQ_MODEL_FALLBACK)
+_structured_llm = _llm.with_structured_output(TalkingPointsExtraction)
+
+# ── HCP history cache ──────────────────────────────────────────────────────────
+# Interaction history for a given HCP rarely changes mid-session.
+# Cache for 5 minutes to avoid repeated DB reads on every talking-points request.
+_history_cache: TTLCache = TTLCache(maxsize=128, ttl=300)
+_history_lock = threading.Lock()
 
 
 @tool
@@ -34,24 +46,35 @@ def suggest_talking_points_tool(hcp_name: str, product_name: str | None = None) 
 
         target_hcp = matching_hcps[0]
 
-        recent_interactions = (
-            db.query(Interaction)
-            .filter(Interaction.hcp_id == target_hcp.id)
-            .order_by(Interaction.interaction_date.desc())
-            .limit(5)
-            .all()
-        )
+        # ── Cached HCP interaction history ─────────────────────────────────────
+        cache_key = f"history:{target_hcp.id}"
+        with _history_lock:
+            cached_history = _history_cache.get(cache_key)
 
-        history_text = "No past interactions."
-        if recent_interactions:
-            history_text = "\n".join(
-                [
-                    f"- {ix.interaction_date}: Topics: {ix.topics_discussed}, "
-                    f"Products: {ix.products_discussed}, Sentiment: {ix.sentiment}. "
-                    f"Summary: {ix.summary}"
-                    for ix in recent_interactions
-                ]
+        if cached_history is not None:
+            history_text = cached_history
+        else:
+            recent_interactions = (
+                db.query(Interaction)
+                .filter(Interaction.hcp_id == target_hcp.id)
+                .order_by(Interaction.interaction_date.desc())
+                .limit(5)
+                .all()
             )
+
+            history_text = "No past interactions."
+            if recent_interactions:
+                history_text = "\n".join(
+                    [
+                        f"- {ix.interaction_date}: Topics: {ix.topics_discussed}, "
+                        f"Products: {ix.products_discussed}, Sentiment: {ix.sentiment}. "
+                        f"Summary: {ix.summary}"
+                        for ix in recent_interactions
+                    ]
+                )
+
+            with _history_lock:
+                _history_cache[cache_key] = history_text
 
         product_info = "No specific product mentioned."
         if product_name:
@@ -67,9 +90,6 @@ def suggest_talking_points_tool(hcp_name: str, product_name: str | None = None) 
                     f"Focus on product '{product_name}' (Note: Not found in database)."
                 )
 
-        llm = ChatGroq(api_key=settings.GROQ_API_KEY, model=settings.GROQ_MODEL_FALLBACK)
-        structured_llm = llm.with_structured_output(TalkingPointsExtraction)
-
         prompt = (
             f"You are an AI assistant helping a pharmaceutical sales rep prepare for a meeting with Dr. {target_hcp.name}.\n"
             f"Specialty: {target_hcp.specialty}\n\n"
@@ -79,9 +99,15 @@ def suggest_talking_points_tool(hcp_name: str, product_name: str | None = None) 
             "Return them as short topic strings in topics_discussed and a friendly reply summarizing them."
         )
 
-        extraction: TalkingPointsExtraction = structured_llm.invoke(
-            [HumanMessage(content=prompt)]
-        )
+        try:
+            extraction: TalkingPointsExtraction = _structured_llm.invoke(
+                [HumanMessage(content=prompt)]
+            )
+        except Exception as e:
+            return tool_envelope(
+                f"Failed to generate talking points. Please try again. Error: {str(e)}",
+                None,
+            )
 
         form_data = {"topics_discussed": extraction.topics_discussed}
         return tool_envelope(extraction.reply, form_data)

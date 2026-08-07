@@ -7,7 +7,7 @@ class FollowUp(Base):
     __tablename__ = "follow_ups"
 
     id = Column(Integer, primary_key=True, index=True)
-    interaction_id = Column(Integer, ForeignKey("interactions.id"), nullable=False)
+    interaction_id = Column(Integer, ForeignKey("interactions.id"), nullable=False, index=True)
     due_date = Column(Date)
     status = Column(String(50), default="pending")
     note = Column(Text)

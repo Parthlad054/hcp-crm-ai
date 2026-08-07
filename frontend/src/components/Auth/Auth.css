@@ -2,20 +2,14 @@
    Auth.css  —  Simple, professional auth pages (light theme)
    ============================================================ */
 
-/* Google Font */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 /* ── Variables ──────────────────────────────────────────────── */
 :root {
   --auth-bg: #f0f4f8;
   --card-bg: #ffffff;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
   --primary-light: #eff6ff;
   --text-dark: #1e293b;
   --text-mid: #475569;
   --text-light: #94a3b8;
-  --border: #e2e8f0;
   --border-focus: #2563eb;
   --error: #ef4444;
   --error-bg: #fef2f2;

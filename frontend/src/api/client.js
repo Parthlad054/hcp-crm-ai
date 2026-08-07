@@ -57,7 +57,6 @@ apiClient.interceptors.response.use(
 
       if (!refreshToken) {
         store.dispatch(logout());
-        window.location.href = "/login";
         return Promise.reject(error);
       }
 
@@ -74,7 +73,6 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         store.dispatch(logout());
-        window.location.href = "/login";
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

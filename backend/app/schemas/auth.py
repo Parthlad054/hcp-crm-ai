@@ -1,5 +1,18 @@
 import re
+from typing import Optional
 from pydantic import BaseModel, EmailStr, field_validator
+
+
+# ── User output ────────────────────────────────────────────────────────────────
+
+class UserOut(BaseModel):
+    id: int
+    name: str
+    email: EmailStr
+    contact_number: str
+    is_active: bool
+
+    model_config = {"from_attributes": True}
 
 
 # ── Registration ─────────────────────────────────────────────────────────────
@@ -10,6 +23,9 @@ class UserRegister(BaseModel):
     contact_number: str
     password: str
     confirm_password: str
+
+    def __repr__(self) -> str:
+        return f"UserRegister(name='{self.name}', email='{self.email}', contact_number='{self.contact_number}', password='***', confirm_password='***')"
 
     @field_validator("name")
     @classmethod
@@ -53,6 +69,9 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+    def __repr__(self) -> str:
+        return f"UserLogin(email='{self.email}', password='***')"
+
 
 # ── Token ─────────────────────────────────────────────────────────────────────
 
@@ -60,6 +79,7 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    user: Optional[UserOut] = None
 
 
 class RefreshTokenRequest(BaseModel):
@@ -76,6 +96,9 @@ class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
 
+    def __repr__(self) -> str:
+        return f"ResetPasswordRequest(token='{self.token[:8]}...', new_password='***')"
+
     @field_validator("new_password")
     @classmethod
     def password_strength(cls, v: str) -> str:
@@ -87,14 +110,3 @@ class ResetPasswordRequest(BaseModel):
             raise ValueError("Password must contain at least one digit")
         return v
 
-
-# ── User output ────────────────────────────────────────────────────────────────
-
-class UserOut(BaseModel):
-    id: int
-    name: str
-    email: EmailStr
-    contact_number: str
-    is_active: bool
-
-    model_config = {"from_attributes": True}
