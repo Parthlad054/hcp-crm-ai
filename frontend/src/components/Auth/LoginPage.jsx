@@ -27,74 +27,145 @@ const EyeIcon = ({ show }) => show ? (
   </svg>
 );
 
-// ── Forgot Password Panel ─────────────────────────────────────────────────────
+// ── Forgot Password Panel (3-step OTP flow) ───────────────────────────────────
 function ForgotPasswordPanel({ onBack }) {
-  const [step, setStep] = useState("request"); // 'request' | 'success' | 'reset'
-  const [email, setEmail] = useState("");
-  const [token, setToken] = useState("");
-  const [newPwd, setNewPwd] = useState("");
+  // step: 'email' → 'otp' → 'password'
+  const [step, setStep]         = useState("email");
+  const [email, setEmail]       = useState("");
+  const [otp, setOtp]           = useState(["", "", "", "", "", ""]);
+  const [newPwd, setNewPwd]     = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [showPwd, setShowPwd] = useState(false);
+  const [showPwd, setShowPwd]   = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+  const [success, setSuccess]   = useState("");
+  const otpRefs = Array.from({ length: 6 }, () => React.useRef(null));
 
-  const handleRequestReset = async (e) => {
+  // ── Step 1: send OTP ────────────────────────────────────────────────────────
+  const handleSendOtp = async (e) => {
     e.preventDefault();
     setError("");
-    if (!email) { setError("Please enter your email address."); return; }
+    if (!email.trim()) { setError("Please enter your email address."); return; }
     setLoading(true);
     try {
       await apiClient.post("/auth/forgot-password", { email });
-      setStep("success");
-      setSuccess("A password reset link has been sent to your email.");
+      setStep("otp");
     } catch (err) {
-      setError(err.response?.data?.detail || "Something went wrong.");
+      setError(err.response?.data?.detail || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  // ── OTP input helpers ───────────────────────────────────────────────────────
+  const handleOtpChange = (idx, val) => {
+    // Accept only single digit
+    const digit = val.replace(/\D/g, "").slice(-1);
+    const next = [...otp];
+    next[idx] = digit;
+    setOtp(next);
+    setError("");
+    if (digit && idx < 5) otpRefs[idx + 1].current?.focus();
+  };
+
+  const handleOtpKeyDown = (idx, e) => {
+    if (e.key === "Backspace") {
+      if (otp[idx]) {
+        const next = [...otp]; next[idx] = ""; setOtp(next);
+      } else if (idx > 0) {
+        otpRefs[idx - 1].current?.focus();
+      }
+    } else if (e.key === "ArrowLeft" && idx > 0) {
+      otpRefs[idx - 1].current?.focus();
+    } else if (e.key === "ArrowRight" && idx < 5) {
+      otpRefs[idx + 1].current?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!text) return;
+    const next = [...otp];
+    text.split("").forEach((d, i) => { next[i] = d; });
+    setOtp(next);
+    const focusIdx = Math.min(text.length, 5);
+    otpRefs[focusIdx].current?.focus();
+  };
+
+  // ── Step 2: verify OTP (move to password step) ─────────────────────────────
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setError("");
+    const code = otp.join("");
+    if (code.length < 6) { setError("Please enter all 6 digits."); return; }
+    // We don't call an endpoint here — verification happens together with the
+    // password reset in step 3, to avoid two round-trips.
+    setStep("password");
+  };
+
+  // ── Step 3: reset password ──────────────────────────────────────────────────
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setError("");
-    if (!token) { setError("Please enter the reset token from your email."); return; }
-    if (newPwd.length < 8) { setError("Password must be at least 8 characters."); return; }
-    if (newPwd !== confirmPwd) { setError("Passwords do not match."); return; }
+    if (newPwd.length < 8)       { setError("Password must be at least 8 characters."); return; }
+    if (!/[A-Z]/.test(newPwd))   { setError("Password must contain at least one uppercase letter."); return; }
+    if (!/\d/.test(newPwd))      { setError("Password must contain at least one digit."); return; }
+    if (newPwd !== confirmPwd)   { setError("Passwords do not match."); return; }
     setLoading(true);
     try {
-      await apiClient.post("/auth/reset-password", { token, new_password: newPwd });
-      setSuccess("Password reset successfully! You can now log in.");
-      setTimeout(onBack, 2500);
+      await apiClient.post("/auth/reset-password", {
+        email,
+        otp: otp.join(""),
+        new_password: newPwd,
+      });
+      setSuccess("Password reset successfully! Redirecting to login…");
+      setTimeout(onBack, 2200);
     } catch (err) {
-      setError(err.response?.data?.detail || "Invalid or expired token.");
+      const msg = err.response?.data?.detail || "Invalid or expired OTP.";
+      setError(msg);
+      // If OTP was wrong/expired, send user back to OTP step
+      if (err.response?.status === 400) {
+        setTimeout(() => { setStep("otp"); setOtp(["","","","","",""]); setError(msg); }, 100);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  // ── Step metadata ───────────────────────────────────────────────────────────
+  const STEPS = {
+    email:    { title: "Forgot password?",    sub: "Enter your registered email and we'll send a 6-digit reset code." },
+    otp:      { title: "Enter your code",     sub: `We sent a 6-digit code to ${email}. Check your inbox (and spam).` },
+    password: { title: "Set new password",    sub: "Almost done — choose a strong new password." },
   };
 
   return (
     <div>
-      <button className="auth-link" style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 6, fontSize: 13 }} onClick={onBack}>
-        ← Back to login
+      <button
+        className="auth-link"
+        style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}
+        onClick={step === "password" ? () => setStep("otp") : onBack}
+      >
+        ← {step === "password" ? "Back" : "Back to login"}
       </button>
 
-      <h2 className="auth-title">
-        {step === "request" ? "Forgot password?" : step === "success" ? "Check your email" : "Reset password"}
-      </h2>
-      <p className="auth-subtitle">
-        {step === "request"
-          ? "Enter your registered email and we'll send a reset link."
-          : step === "success"
-          ? "We sent a reset link to your email. Enter the token below."
-          : "Enter the token from your email and set a new password."}
-      </p>
+      {/* Step indicators */}
+      <div className="otp-steps">
+        {["email", "otp", "password"].map((s, i) => (
+          <div key={s} className={`otp-step-dot ${step === s ? "active" : (["email","otp","password"].indexOf(step) > i ? "done" : "")}`} />
+        ))}
+      </div>
 
-      {error && <div className="auth-alert error" role="alert">{error}</div>}
+      <h2 className="auth-title">{STEPS[step].title}</h2>
+      <p className="auth-subtitle">{STEPS[step].sub}</p>
+
+      {error   && <div className="auth-alert error"   role="alert">{error}</div>}
       {success && <div className="auth-alert success" role="alert">{success}</div>}
 
-      {step === "request" && (
-        <form className="auth-form" onSubmit={handleRequestReset} noValidate>
+      {/* ── Step 1: Email ─────────────────────────────────────────────────── */}
+      {step === "email" && (
+        <form className="auth-form" onSubmit={handleSendOtp} noValidate>
           <div className="auth-field">
             <label htmlFor="forgot-email">Email address</label>
             <div className="auth-input-wrap">
@@ -107,32 +178,53 @@ function ForgotPasswordPanel({ onBack }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
+                autoFocus
               />
             </div>
           </div>
           <button id="forgot-submit-btn" className="auth-btn" type="submit" disabled={loading}>
             {loading && <span className="auth-spinner" />}
-            {loading ? "Sending…" : "Send reset link"}
+            {loading ? "Sending…" : "Send code"}
           </button>
         </form>
       )}
 
-      {step === "success" && (
-        <form className="auth-form" onSubmit={handleResetPassword} noValidate>
-          <div className="auth-field">
-            <label htmlFor="reset-token">Reset token (from email)</label>
-            <div className="auth-input-wrap">
-              <span className="auth-input-icon"><LockIcon /></span>
+      {/* ── Step 2: OTP boxes ─────────────────────────────────────────────── */}
+      {step === "otp" && (
+        <form className="auth-form" onSubmit={handleVerifyOtp} noValidate>
+          <div className="otp-box-group" onPaste={handleOtpPaste}>
+            {otp.map((digit, idx) => (
               <input
-                id="reset-token"
+                key={idx}
+                ref={otpRefs[idx]}
+                id={`otp-digit-${idx}`}
                 type="text"
-                className="auth-input"
-                placeholder="Paste the token from your email"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
+                inputMode="numeric"
+                maxLength={1}
+                className={`otp-box${digit ? " filled" : ""}${error ? " error" : ""}`}
+                value={digit}
+                onChange={(e) => handleOtpChange(idx, e.target.value)}
+                onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                autoFocus={idx === 0}
+                autoComplete="one-time-code"
               />
-            </div>
+            ))}
           </div>
+          <button id="otp-verify-btn" className="auth-btn" type="submit" disabled={otp.join("").length < 6}>
+            Verify code →
+          </button>
+          <p style={{ textAlign: "center", fontSize: 13, color: "var(--text-mid)", marginTop: 4 }}>
+            Didn't receive it?{" "}
+            <button type="button" className="auth-link" onClick={() => { setStep("email"); setOtp(["","","","","",""]); setError(""); }}>
+              Resend
+            </button>
+          </p>
+        </form>
+      )}
+
+      {/* ── Step 3: New password ──────────────────────────────────────────── */}
+      {step === "password" && (
+        <form className="auth-form" onSubmit={handleResetPassword} noValidate>
           <div className="auth-field">
             <label htmlFor="new-password">New password</label>
             <div className="auth-input-wrap">
@@ -145,6 +237,7 @@ function ForgotPasswordPanel({ onBack }) {
                 value={newPwd}
                 onChange={(e) => setNewPwd(e.target.value)}
                 autoComplete="new-password"
+                autoFocus
               />
               <button type="button" className="auth-input-toggle" onClick={() => setShowPwd(!showPwd)} aria-label="Toggle password">
                 <EyeIcon show={showPwd} />
@@ -168,7 +261,7 @@ function ForgotPasswordPanel({ onBack }) {
           </div>
           <button id="reset-submit-btn" className="auth-btn" type="submit" disabled={loading}>
             {loading && <span className="auth-spinner" />}
-            {loading ? "Resetting…" : "Reset password"}
+            {loading ? "Saving…" : "Reset password"}
           </button>
         </form>
       )}

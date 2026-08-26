@@ -10,6 +10,7 @@ import LogScreen from "./components/LogScreen/LogScreen";
 import LoginPage from "./components/Auth/LoginPage";
 import SignUpPage from "./components/Auth/SignUpPage";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
+import useInactivityLogout from "./hooks/useInactivityLogout";
 import "./App.css";
 
 function App() {
@@ -26,6 +27,9 @@ function App() {
       dispatch(fetchCurrentUser());
     }
   }, [isAuthenticated, currentUser, dispatch]);
+
+  // Activate inactivity + visibility logout timers for the whole session
+  useInactivityLogout();
 
   const handleLogout = () => {
     dispatch(logout());

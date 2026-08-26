@@ -340,3 +340,88 @@
     font-size: 20px;
   }
 }
+
+/* ── OTP step indicator dots ─────────────────────────────────────────────── */
+.otp-steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.otp-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border, #e2e8f0);
+  transition: background 0.25s, transform 0.2s;
+  flex-shrink: 0;
+}
+
+.otp-step-dot.active {
+  background: var(--primary, #2563eb);
+  transform: scale(1.4);
+}
+
+.otp-step-dot.done {
+  background: #16a34a;
+}
+
+/* ── OTP 6-box input group ───────────────────────────────────────────────── */
+.otp-box-group {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 8px 0 4px;
+}
+
+.otp-box {
+  width: 48px;
+  height: 56px;
+  border: 2px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  font-size: 24px;
+  font-weight: 700;
+  font-family: 'Inter', monospace, sans-serif;
+  color: var(--text-dark, #1e293b);
+  text-align: center;
+  outline: none;
+  background: #fff;
+  transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+  caret-color: transparent;
+  -moz-appearance: textfield;
+}
+
+.otp-box::-webkit-outer-spin-button,
+.otp-box::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
+.otp-box:focus {
+  border-color: var(--border-focus, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  background: #f8faff;
+}
+
+.otp-box.filled {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.otp-box.error {
+  border-color: var(--error, #ef4444);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.10);
+}
+
+@media (max-width: 400px) {
+  .otp-box {
+    width: 40px;
+    height: 48px;
+    font-size: 20px;
+    border-radius: 8px;
+  }
+  .otp-box-group {
+    gap: 7px;
+  }
+}

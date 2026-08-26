@@ -9,11 +9,23 @@ const apiClient = axios.create({
   },
 });
 
+// ── Public routes that must never carry an Authorization header ───────────────
+const PUBLIC_PATHS = [
+  "/auth/login",
+  "/auth/register",
+  "/auth/refresh",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+];
+
 // ── Request interceptor: attach Bearer token ───────────────────────────────
 apiClient.interceptors.request.use((config) => {
-  const token = store.getState().auth?.accessToken;
-  if (token) {
-    config.headers["Authorization"] = `Bearer ${token}`;
+  const isPublic = PUBLIC_PATHS.some((p) => config.url?.startsWith(p));
+  if (!isPublic) {
+    const token = store.getState().auth?.accessToken;
+    if (token) {
+      config.headers["Authorization"] = `Bearer ${token}`;
+    }
   }
   return config;
 });

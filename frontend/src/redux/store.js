@@ -4,35 +4,69 @@ import chatReducer from "./slices/chatSlice";
 import formReducer from "./slices/formSlice";
 import authReducer from "./slices/authSlice";
 
-const loadState = () => {
+// ── Auth state — sessionStorage ───────────────────────────────────────────────
+// sessionStorage is automatically cleared by the browser when the tab/window
+// is closed, so "logout on tab close" is handled natively with no extra code.
+const AUTH_KEY = "hcp_crm_auth";
+
+const loadAuthState = () => {
   try {
-    const serializedState = localStorage.getItem("hcp_crm_state");
-    if (serializedState === null) return undefined;
-    return JSON.parse(serializedState);
-  } catch (err) {
+    const raw = sessionStorage.getItem(AUTH_KEY);
+    if (!raw) return undefined;
+    const auth = JSON.parse(raw);
+    // If the access token has already expired, discard the stored session
+    // so the user is redirected to login instead of seeing an error flash.
+    if (auth.tokenExpiresAt && Date.now() >= auth.tokenExpiresAt) {
+      sessionStorage.removeItem(AUTH_KEY);
+      return undefined;
+    }
+    return { auth: { ...auth, status: "idle", error: null } };
+  } catch {
     return undefined;
   }
 };
 
-const saveState = (state) => {
+const saveAuthState = (auth) => {
   try {
-    const stateToSave = {
-      chat: state.chat,
-      form: state.form,
-      // Persist only tokens — not loading/error states
-      auth: {
-        accessToken: state.auth.accessToken,
-        refreshToken: state.auth.refreshToken,
-        user: state.auth.user,
-        status: "idle",
-        error: null,
-      },
-    };
-    const serializedState = JSON.stringify(stateToSave);
-    localStorage.setItem("hcp_crm_state", serializedState);
+    sessionStorage.setItem(
+      AUTH_KEY,
+      JSON.stringify({
+        accessToken: auth.accessToken,
+        refreshToken: auth.refreshToken,
+        tokenExpiresAt: auth.tokenExpiresAt,
+        user: auth.user,
+      })
+    );
   } catch (err) {
-    console.error("Could not save state", err);
+    console.error("Could not save auth state", err);
   }
+};
+
+// ── Non-auth state — localStorage ─────────────────────────────────────────────
+// Chat and form state persist across page refreshes but not auth.
+const UI_KEY = "hcp_crm_ui";
+
+const loadUiState = () => {
+  try {
+    const raw = localStorage.getItem(UI_KEY);
+    return raw ? JSON.parse(raw) : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const saveUiState = (state) => {
+  try {
+    localStorage.setItem(UI_KEY, JSON.stringify({ chat: state.chat, form: state.form }));
+  } catch (err) {
+    console.error("Could not save UI state", err);
+  }
+};
+
+// ── Store ──────────────────────────────────────────────────────────────────────
+const preloaded = {
+  ...(loadAuthState() || {}),
+  ...(loadUiState() || {}),
 };
 
 export const store = configureStore({
@@ -42,9 +76,11 @@ export const store = configureStore({
     form: formReducer,
     auth: authReducer,
   },
-  preloadedState: loadState(),
+  preloadedState: preloaded,
 });
 
 store.subscribe(() => {
-  saveState(store.getState());
+  const state = store.getState();
+  saveAuthState(state.auth);
+  saveUiState(state);
 });
