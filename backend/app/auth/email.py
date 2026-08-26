@@ -1,8 +1,13 @@
 """
 auth/email.py — Async SMTP email helper for password-reset messages.
 Uses aiosmtplib with STARTTLS (port 587).
+
+Template rendering uses stdlib `string.Template` (dollar-sign placeholders)
+so CSS braces in the HTML file are never misinterpreted by Python's str.format().
 """
 import logging
+import pathlib
+import string
 import aiosmtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -11,68 +16,69 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# The frontend URL where the reset form lives.
-# Reads from FRONTEND_URL in .env — defaults to localhost for dev,
-# override per environment (staging / production).
-FRONTEND_RESET_URL = f"{settings.FRONTEND_URL}/reset-password"
+# Resolved once at import time; raises FileNotFoundError early if missing.
+_TEMPLATE_PATH = pathlib.Path(__file__).parent.parent / "templates" / "reset_password_email.html"
+
+if not _TEMPLATE_PATH.exists():
+    raise FileNotFoundError(
+        f"Email template not found: {_TEMPLATE_PATH}. "
+        "Ensure backend/app/templates/reset_password_email.html exists."
+    )
 
 
-async def send_reset_email(to_email: str, user_name: str, reset_token: str) -> None:
+def _render_html(otp: str, user_name: str) -> str:
     """
-    Sends a password-reset email via SMTP STARTTLS.
+    Loads the HTML email template and substitutes $-delimited placeholders.
+
+    Uses string.Template instead of str.format() so that CSS brace syntax
+    (e.g. `body { font-family: ... }`) is never mistaken for format variables.
+
+    Template variables expected in the file:
+        $user_name      — recipient's display name
+        $otp            — 6-digit one-time password
+        $expire_minutes — token lifetime in minutes
+    """
+    raw = _TEMPLATE_PATH.read_text(encoding="utf-8")
+    tpl = string.Template(raw)
+    return tpl.substitute(
+        user_name=user_name,
+        otp=otp,
+        expire_minutes=settings.RESET_TOKEN_EXPIRE_MINUTES,
+    )
+
+
+async def send_reset_email(to_email: str, user_name: str, otp: str) -> None:
+    """
+    Sends a password-reset OTP email via SMTP STARTTLS.
     Fires from a FastAPI BackgroundTask so it never blocks the response.
-    """
-    reset_link = f"{FRONTEND_RESET_URL}?token={reset_token}"
 
-    # ── Build the HTML message ────────────────────────────────────────────────
-    html_body = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8"/>
-      <style>
-        body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f5f7fa; margin: 0; padding: 20px; }}
-        .card {{ max-width: 520px; margin: 40px auto; background: #ffffff; border-radius: 12px;
-                 padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }}
-        h2 {{ color: #1e293b; margin-top: 0; }}
-        p  {{ color: #475569; line-height: 1.6; }}
-        .btn {{ display: inline-block; margin: 24px 0; padding: 13px 28px;
-                background: #2563eb; color: #ffffff !important; text-decoration: none;
-                border-radius: 8px; font-weight: 600; font-size: 15px; }}
-        .note {{ font-size: 13px; color: #94a3b8; margin-top: 24px; }}
-        .logo {{ font-size: 22px; font-weight: 700; color: #2563eb; margin-bottom: 24px; }}
-      </style>
-    </head>
-    <body>
-      <div class="card">
-        <div class="logo">⚕️ HCP CRM AI</div>
-        <h2>Reset your password</h2>
-        <p>Hi <strong>{user_name}</strong>,</p>
-        <p>We received a request to reset the password for your HCP CRM AI account.
-           Click the button below to choose a new password.</p>
-        <a class="btn" href="{reset_link}">Reset Password</a>
-        <p>This link expires in <strong>{settings.RESET_TOKEN_EXPIRE_MINUTES} minutes</strong>.
-           If you didn't request a password reset, you can safely ignore this email.</p>
-        <p class="note">
-          If the button doesn't work, paste this URL into your browser:<br/>
-          <a href="{reset_link}">{reset_link}</a>
-        </p>
-      </div>
-    </body>
-    </html>
+    Errors are logged with full tracebacks but never re-raised — the API
+    has already returned 202 by the time this runs.
     """
+    # ── Build message bodies ──────────────────────────────────────────────────
+    try:
+        html_body = _render_html(otp=otp, user_name=user_name)
+    except (KeyError, ValueError) as exc:
+        # KeyError   → a $placeholder in the template has no matching kwarg
+        # ValueError → malformed placeholder — should never happen
+        logger.error(
+            "Template rendering failed for reset email to %s — %s: %s",
+            to_email, type(exc).__name__, exc,
+            exc_info=True,
+        )
+        return  # Cannot build HTML body; abort (202 already returned to client)
 
     plain_body = (
         f"Hi {user_name},\n\n"
-        "We received a request to reset your HCP CRM AI password.\n\n"
-        f"Click the link below to reset it (expires in {settings.RESET_TOKEN_EXPIRE_MINUTES} minutes):\n"
-        f"{reset_link}\n\n"
-        "If you didn't request this, please ignore this email."
+        f"Your HCP CRM AI password reset code is: {otp}\n\n"
+        f"Enter this 6-digit code in the app. It expires in {settings.RESET_TOKEN_EXPIRE_MINUTES} minutes.\n\n"
+        "If you didn't request a password reset, you can safely ignore this email.\n\n"
+        "— HCP CRM AI"
     )
 
     # ── Assemble MIME message ─────────────────────────────────────────────────
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = "Reset your HCP CRM AI password"
+    msg["Subject"] = "Your HCP CRM AI password reset code"
     msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
     msg["To"] = to_email
     msg.attach(MIMEText(plain_body, "plain"))
@@ -88,7 +94,18 @@ async def send_reset_email(to_email: str, user_name: str, reset_token: str) -> N
             password=settings.SMTP_PASSWORD,
             start_tls=True,
         )
-        logger.info("Password-reset email sent to %s", to_email)
+        logger.info("Password-reset OTP email sent to %s", to_email)
+    except aiosmtplib.SMTPException as exc:
+        # SMTP-level failure (auth error, connection refused, relay rejection…)
+        logger.error(
+            "SMTP error sending reset email to %s — %s: %s",
+            to_email, type(exc).__name__, exc,
+            exc_info=True,
+        )
     except Exception as exc:
-        # Log but don't bubble up — the API already returned 202
-        logger.error("Failed to send reset email to %s: %s", to_email, exc)
+        # Catch-all for unexpected failures (DNS, TLS negotiation, etc.)
+        logger.error(
+            "Unexpected error sending reset email to %s — %s: %s",
+            to_email, type(exc).__name__, exc,
+            exc_info=True,
+        )

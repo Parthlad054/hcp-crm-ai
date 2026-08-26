@@ -93,11 +93,20 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    token: str
+    email: EmailStr
+    otp: str          # 6-digit code sent to user's email
     new_password: str
 
     def __repr__(self) -> str:
-        return f"ResetPasswordRequest(token='{self.token[:8]}...', new_password='***')"
+        return f"ResetPasswordRequest(email='{self.email}', otp='[REDACTED]', new_password='***')"
+
+    @field_validator("otp")
+    @classmethod
+    def otp_format(cls, v: str) -> str:
+        v = v.strip()
+        if not v.isdigit() or len(v) != 6:
+            raise ValueError("OTP must be exactly 6 digits")
+        return v
 
     @field_validator("new_password")
     @classmethod

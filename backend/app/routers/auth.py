@@ -5,6 +5,7 @@ Forgot Password (SMTP), Reset Password, and /me endpoints.
 from datetime import datetime, timedelta, timezone
 import hashlib
 import logging
+import secrets
 from fastapi import APIRouter, Depends, HTTPException, Request, status, BackgroundTasks
 from sqlalchemy.orm import Session
 
@@ -26,7 +27,6 @@ from app.auth.security import (
     verify_password,
     create_access_token,
     create_refresh_token,
-    create_reset_token,
     decode_token,
     get_current_user,
 )
@@ -136,29 +136,31 @@ async def forgot_password(
     db: Session = Depends(get_db),
 ):
     """
-    Sends a password-reset email to the registered address.
+    Sends a 6-digit OTP to the registered email address.
     Always returns 202 to avoid revealing whether the email exists.
     Rate-limited: 5 requests per IP per minute (prevents email spam/DoS).
     """
+    _SAFE_RESPONSE = {"message": "If that email is registered, a 6-digit OTP has been sent."}
+
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
-        # Return success anyway to prevent user enumeration
-        return {"message": "If that email is registered, a reset link has been sent."}
+        return _SAFE_RESPONSE  # Prevent user enumeration
 
-    reset_token = create_reset_token(user.id)
-    token_hash = hashlib.sha256(reset_token.encode()).hexdigest()
+    # Generate a cryptographically secure 6-digit OTP (000000–999999)
+    otp = f"{secrets.randbelow(1_000_000):06d}"
+    otp_hash = hashlib.sha256(otp.encode()).hexdigest()
 
-    user.password_reset_token = token_hash
+    user.password_reset_token = otp_hash
     user.password_reset_expires = datetime.now(timezone.utc) + timedelta(
         minutes=settings.RESET_TOKEN_EXPIRE_MINUTES
     )
     db.commit()
 
-    # Fire-and-forget email in background so the endpoint responds immediately
-    background_tasks.add_task(send_reset_email, user.email, user.name, reset_token)
+    # Fire-and-forget — email is sent in background so endpoint responds immediately
+    background_tasks.add_task(send_reset_email, user.email, user.name, otp)
 
-    logger.info("Password reset token generated for user %s", user.id)
-    return {"message": "If that email is registered, a reset link has been sent."}
+    logger.info("Password reset OTP generated for user %s", user.id)
+    return _SAFE_RESPONSE
 
 
 # ── Reset Password ────────────────────────────────────────────────────────────
@@ -171,47 +173,46 @@ async def reset_password(
     db: Session = Depends(get_db),
 ):
     """
-    Validates the reset JWT and single-use DB record, then sets a new hashed password.
+    Validates the 6-digit OTP and email, then sets a new hashed password.
+    The OTP is single-use and cleared immediately after a successful reset.
     Rate-limited: 5 attempts per IP per minute.
     """
-    user_id = decode_token(payload.token, expected_type="reset")
-    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    _INVALID = HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invalid or expired OTP",
+    )
+
+    # Look up user by email (not by token — OTP flow is email-scoped)
+    user = db.query(User).filter(
+        User.email == payload.email,
+        User.is_active == True,
+    ).first()
     if not user or not user.password_reset_token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset token",
-        )
+        raise _INVALID
 
-    # Verify single-use token hash
-    token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
-    if user.password_reset_token != token_hash:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset token",
-        )
-
-    # Verify expiration
+    # Verify expiration first (before doing the hash comparison)
     now = datetime.now(timezone.utc)
-    if user.password_reset_expires and user.password_reset_expires.tzinfo is None:
-        expires_at = user.password_reset_expires.replace(tzinfo=timezone.utc)
-    else:
-        expires_at = user.password_reset_expires
-
-    if expires_at and now > expires_at:
+    expires_at = user.password_reset_expires
+    if expires_at is not None and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at is None or now > expires_at:
         user.password_reset_token = None
         user.password_reset_expires = None
         db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset token",
-        )
+        raise _INVALID
 
-    # Apply new password and immediately invalidate the single-use token
+    # Constant-time comparison via hashing (prevents timing attacks)
+    submitted_hash = hashlib.sha256(payload.otp.encode()).hexdigest()
+    if not secrets.compare_digest(submitted_hash, user.password_reset_token):
+        raise _INVALID
+
+    # Apply new password and immediately invalidate the single-use OTP
     user.hashed_password = hash_password(payload.new_password)
     user.password_reset_token = None
     user.password_reset_expires = None
     db.commit()
 
+    logger.info("Password reset successfully for user %s", user.id)
     return {"message": "Password has been reset successfully"}
 
 

@@ -65,6 +65,21 @@ def log_interaction_tool(text: str) -> str:
         target_hcp = matching_hcps[0]
         form_data["hcp_name"] = target_hcp.name
 
+        # Check if the input contains actual interaction details vs just a doctor's name
+        has_details = bool(
+            extracted.topics_discussed
+            or extracted.products_discussed
+            or extracted.samples_given
+            or any(kw in text.lower() for kw in ["met", "visited", "called", "discussed", "talked", "gave", "sample"])
+        )
+
+        if not has_details:
+            return tool_envelope(
+                f"I've set the doctor's name to '{target_hcp.name}' on the form. "
+                "Please describe your visit (topics, products discussed, sentiment) to log the interaction.",
+                form_data,
+            )
+
         rep_id = get_current_rep_id() or "demo_rep"
 
         new_interaction = Interaction(

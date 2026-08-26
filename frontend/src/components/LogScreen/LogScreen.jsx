@@ -18,6 +18,7 @@ const LogScreen = () => {
   const isAiFilled = form.isAiFilled;
 
   const [submitStatus, setSubmitStatus] = useState(null);
+  const [disambiguateInfo, setDisambiguateInfo] = useState("");
   const [chatResetKey, setChatResetKey] = useState(0);
 
   // Auto-dismiss status banner after 4 seconds
@@ -71,17 +72,27 @@ const LogScreen = () => {
     }
 
     try {
+      const cleanHcpName = form.hcp_name.trim();
       const { data: hcpResults } = await apiClient.get("/hcps/", {
-        params: { q: form.hcp_name.trim() },
+        params: { q: cleanHcpName },
       });
+
+      const exactMatches = hcpResults.filter(
+        (h) => h.name.trim().toLowerCase() === cleanHcpName.toLowerCase()
+      );
 
       let hcpId;
 
-      if (hcpResults.length > 0) {
-        hcpId = hcpResults[0].id;
+      if (exactMatches.length === 1) {
+        hcpId = exactMatches[0].id;
+      } else if (exactMatches.length > 1) {
+        const names = exactMatches.map((h) => h.name).join(", ");
+        setDisambiguateInfo(names);
+        setSubmitStatus("multiple_hcps");
+        return;
       } else {
         const { data: newHcp } = await apiClient.post("/hcps/", {
-          name: form.hcp_name.trim(),
+          name: cleanHcpName,
         });
         hcpId = newHcp.id;
       }
@@ -301,6 +312,11 @@ const LogScreen = () => {
           {submitStatus === "no_followup_date" && (
             <div className="form-status error">
               ❌ Please select a follow-up date since follow-up is checked.
+            </div>
+          )}
+          {submitStatus === "multiple_hcps" && (
+            <div className="form-status error">
+              ❌ Multiple HCPs match exact name "{form.hcp_name.trim()}": {disambiguateInfo}. Please specify the full exact name.
             </div>
           )}
 
