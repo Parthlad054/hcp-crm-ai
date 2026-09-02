@@ -9,13 +9,13 @@ class InteractionExtraction(BaseModel):
     """
     hcp_name: str = Field(description="The name of the Healthcare Professional (HCP). Example: 'Dr. Rao', 'Alice Smith'")
     interaction_date: date = Field(description="The date of the interaction. If not explicitly mentioned, assume today's date in YYYY-MM-DD format.")
-    topics_discussed: List[str] = Field(default_factory=list, description="A list of topics discussed during the interaction.")
-    products_discussed: List[str] = Field(default_factory=list, description="A list of products or medications discussed.")
-    sentiment: str = Field(description="The sentiment of the interaction. Must be one of: positive, neutral, negative.")
-    samples_given: Dict[str, Any] = Field(default_factory=dict, description="A dictionary of samples given, where the key is the product and the value is the quantity.")
+    topics_discussed: Optional[List[str]] = Field(default_factory=list, description="A list of topics discussed during the interaction.")
+    products_discussed: Optional[List[str]] = Field(default_factory=list, description="A list of products or medications discussed.")
+    sentiment: Optional[str] = Field(default="neutral", description="The sentiment of the interaction. Must be one of: positive, neutral, negative.")
+    samples_given: Optional[Dict[str, Any]] = Field(default_factory=dict, description="A dictionary of samples given, where the key is the product and the value is the quantity, or null if none.")
     follow_up_required: bool = Field(default=False, description="True if a follow-up is required, False otherwise.")
     follow_up_date: Optional[date] = Field(default=None, description="The date the follow up should occur, if requested. YYYY-MM-DD format.")
-    channel: str = Field(default="in-person", description="Interaction channel. One of: in-person, call, email, conference.")
+    channel: Optional[str] = Field(default="in-person", description="Interaction channel. One of: in-person, call, email, conference.")
 
 
 class InteractionEditExtraction(BaseModel):

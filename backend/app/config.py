@@ -1,11 +1,32 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     DATABASE_URL: str
     GROQ_API_KEY: str
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
-    GROQ_MODEL_FALLBACK: str = "llama-3.1-8b-instant"
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_MODEL_FALLBACK: str = "openai/gpt-oss-120b"
+
+    @field_validator("GROQ_MODEL")
+    @classmethod
+    def validate_groq_model(cls, v: str) -> str:
+        cleaned = v.strip() if v else ""
+        if not cleaned:
+            raise ValueError(
+                "GROQ_MODEL cannot be empty. Please specify a verified Groq model (e.g. openai/gpt-oss-120b) in your .env file."
+            )
+        return cleaned
+
+    @field_validator("GROQ_API_KEY")
+    @classmethod
+    def validate_groq_api_key(cls, v: str) -> str:
+        cleaned = v.strip() if v else ""
+        if not cleaned:
+            raise ValueError(
+                "GROQ_API_KEY cannot be empty. Please provide a valid Groq API key in your .env file."
+            )
+        return cleaned
 
     # JWT
     SECRET_KEY: str = "change-me-in-production-use-a-long-random-secret"

@@ -8,6 +8,7 @@ from app.auth.security import get_current_user
 from app.database import get_db
 from app.models.follow_up import FollowUp
 from app.models.user import User
+from app.schemas.common import ApiResponse
 from app.schemas.follow_up import FollowUpCreate, FollowUpOut
 
 router = APIRouter()
@@ -21,7 +22,7 @@ class StatusUpdate(BaseModel):
     status: FollowUpStatus
 
 
-@router.post("/", response_model=FollowUpOut, status_code=201)
+@router.post("/", response_model=ApiResponse[FollowUpOut], status_code=201)
 def create_follow_up(
     payload: FollowUpCreate,
     db: Session = Depends(get_db),
@@ -32,24 +33,33 @@ def create_follow_up(
     db.add(follow_up)
     db.commit()
     db.refresh(follow_up)
-    return follow_up
+    return ApiResponse(
+        statusCode=201,
+        message="Follow-up scheduled successfully",
+        data=FollowUpOut.model_validate(follow_up),
+    )
 
 
-@router.get("/{interaction_id}", response_model=List[FollowUpOut])
+@router.get("/{interaction_id}", response_model=ApiResponse[List[FollowUpOut]])
 def get_follow_ups(
     interaction_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Return all follow-ups linked to a specific interaction."""
-    return (
+    rows = (
         db.query(FollowUp)
         .filter(FollowUp.interaction_id == interaction_id)
         .all()
     )
+    return ApiResponse(
+        statusCode=200,
+        message="Follow-ups fetched successfully",
+        data=[FollowUpOut.model_validate(r) for r in rows],
+    )
 
 
-@router.patch("/{follow_up_id}/status", response_model=FollowUpOut)
+@router.patch("/{follow_up_id}/status", response_model=ApiResponse[FollowUpOut])
 def update_status(
     follow_up_id: int,
     payload: StatusUpdate,
@@ -66,5 +76,9 @@ def update_status(
     fu.status = payload.status
     db.commit()
     db.refresh(fu)
-    return fu
+    return ApiResponse(
+        statusCode=200,
+        message="Follow-up status updated successfully",
+        data=FollowUpOut.model_validate(fu),
+    )
 

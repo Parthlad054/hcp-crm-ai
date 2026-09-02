@@ -9,6 +9,7 @@ from app.auth.security import get_current_user
 from app.database import get_db
 from app.models.hcp import HCP
 from app.models.user import User
+from app.schemas.common import ApiResponse
 from app.schemas.hcp import HCPCreate, HCPOut
 
 router = APIRouter()
@@ -28,7 +29,7 @@ def _invalidate_hcp_cache() -> None:
         _hcp_cache.clear()
 
 
-@router.get("/", response_model=List[HCPOut])
+@router.get("/", response_model=ApiResponse[List[HCPOut]])
 def list_hcps(
     q: str = "",
     skip: int = Query(default=0, ge=0),
@@ -40,7 +41,11 @@ def list_hcps(
     key = _cache_key(q, skip, limit)
     with _cache_lock:
         if key in _hcp_cache:
-            return _hcp_cache[key]
+            return ApiResponse(
+                statusCode=200,
+                message="HCPs fetched successfully",
+                data=_hcp_cache[key],
+            )
 
     query = db.query(HCP)
     if q:
@@ -50,10 +55,15 @@ def list_hcps(
     result = [HCPOut.model_validate(r) for r in rows]
     with _cache_lock:
         _hcp_cache[key] = result
-    return result
+
+    return ApiResponse(
+        statusCode=200,
+        message="HCPs fetched successfully",
+        data=result,
+    )
 
 
-@router.post("/", response_model=HCPOut, status_code=201)
+@router.post("/", response_model=ApiResponse[HCPOut], status_code=201)
 def create_hcp(
     payload: HCPCreate,
     db: Session = Depends(get_db),
@@ -65,10 +75,14 @@ def create_hcp(
     db.commit()
     db.refresh(hcp)
     _invalidate_hcp_cache()  # ensure next search reflects the new record
-    return hcp
+    return ApiResponse(
+        statusCode=201,
+        message="HCP created successfully",
+        data=HCPOut.model_validate(hcp),
+    )
 
 
-@router.get("/{hcp_id}", response_model=HCPOut)
+@router.get("/{hcp_id}", response_model=ApiResponse[HCPOut])
 def get_hcp(
     hcp_id: int,
     db: Session = Depends(get_db),
@@ -77,5 +91,9 @@ def get_hcp(
     hcp = db.query(HCP).filter(HCP.id == hcp_id).first()
     if not hcp:
         raise HTTPException(status_code=404, detail="HCP not found")
-    return hcp
+    return ApiResponse(
+        statusCode=200,
+        message="HCP fetched successfully",
+        data=HCPOut.model_validate(hcp),
+    )
 

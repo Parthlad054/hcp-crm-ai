@@ -13,6 +13,7 @@ from app.config import settings
 from app.database import get_db
 from app.limiter import limiter
 from app.models.user import User
+from app.schemas.common import ApiResponse
 from app.schemas.auth import (
     UserRegister,
     UserLogin,
@@ -39,7 +40,7 @@ router = APIRouter()
 
 # ── Register ──────────────────────────────────────────────────────────────────
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=ApiResponse[TokenResponse], status_code=status.HTTP_201_CREATED)
 @limiter.limit("3/minute")
 async def register(request: Request, payload: UserRegister, db: Session = Depends(get_db)):
     """
@@ -65,16 +66,20 @@ async def register(request: Request, payload: UserRegister, db: Session = Depend
     db.commit()
     db.refresh(user)
 
-    return TokenResponse(
-        access_token=create_access_token(user.id),
-        refresh_token=create_refresh_token(user.id),
-        user=UserOut.model_validate(user),
+    return ApiResponse(
+        statusCode=status.HTTP_201_CREATED,
+        message="User registered successfully",
+        data=TokenResponse(
+            access_token=create_access_token(user.id),
+            refresh_token=create_refresh_token(user.id),
+            user=UserOut.model_validate(user),
+        ),
     )
 
 
 # ── Login ─────────────────────────────────────────────────────────────────────
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=ApiResponse[TokenResponse])
 @limiter.limit("10/minute")
 async def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)):
     """
@@ -95,16 +100,20 @@ async def login(request: Request, payload: UserLogin, db: Session = Depends(get_
             detail="Account is deactivated",
         )
 
-    return TokenResponse(
-        access_token=create_access_token(user.id),
-        refresh_token=create_refresh_token(user.id),
-        user=UserOut.model_validate(user),
+    return ApiResponse(
+        statusCode=status.HTTP_200_OK,
+        message="Login successful",
+        data=TokenResponse(
+            access_token=create_access_token(user.id),
+            refresh_token=create_refresh_token(user.id),
+            user=UserOut.model_validate(user),
+        ),
     )
 
 
 # ── Refresh Token ─────────────────────────────────────────────────────────────
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=ApiResponse[TokenResponse])
 async def refresh_token(payload: RefreshTokenRequest, db: Session = Depends(get_db)):
     """
     Exchange a valid refresh token for a new access + refresh token pair.
@@ -118,16 +127,20 @@ async def refresh_token(payload: RefreshTokenRequest, db: Session = Depends(get_
             detail="User not found or inactive",
         )
 
-    return TokenResponse(
-        access_token=create_access_token(user.id),
-        refresh_token=create_refresh_token(user.id),
-        user=UserOut.model_validate(user),
+    return ApiResponse(
+        statusCode=status.HTTP_200_OK,
+        message="Token refreshed successfully",
+        data=TokenResponse(
+            access_token=create_access_token(user.id),
+            refresh_token=create_refresh_token(user.id),
+            user=UserOut.model_validate(user),
+        ),
     )
 
 
 # ── Forgot Password ───────────────────────────────────────────────────────────
 
-@router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/forgot-password", response_model=ApiResponse[None], status_code=status.HTTP_202_ACCEPTED)
 @limiter.limit("5/minute")
 async def forgot_password(
     request: Request,
@@ -140,7 +153,11 @@ async def forgot_password(
     Always returns 202 to avoid revealing whether the email exists.
     Rate-limited: 5 requests per IP per minute (prevents email spam/DoS).
     """
-    _SAFE_RESPONSE = {"message": "If that email is registered, a 6-digit OTP has been sent."}
+    _SAFE_RESPONSE = ApiResponse(
+        statusCode=status.HTTP_202_ACCEPTED,
+        message="If that email is registered, a 6-digit OTP has been sent.",
+        data=None,
+    )
 
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
@@ -165,7 +182,7 @@ async def forgot_password(
 
 # ── Reset Password ────────────────────────────────────────────────────────────
 
-@router.post("/reset-password", status_code=status.HTTP_200_OK)
+@router.post("/reset-password", response_model=ApiResponse[None], status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
 async def reset_password(
     request: Request,
@@ -213,13 +230,21 @@ async def reset_password(
     db.commit()
 
     logger.info("Password reset successfully for user %s", user.id)
-    return {"message": "Password has been reset successfully"}
+    return ApiResponse(
+        statusCode=status.HTTP_200_OK,
+        message="Password has been reset successfully",
+        data=None,
+    )
 
 
 # ── Current User ──────────────────────────────────────────────────────────────
 
-@router.get("/me", response_model=UserOut)
+@router.get("/me", response_model=ApiResponse[UserOut])
 async def get_me(current_user: User = Depends(get_current_user)):
     """Returns the profile of the currently authenticated user."""
-    return current_user
+    return ApiResponse(
+        statusCode=status.HTTP_200_OK,
+        message="User profile fetched successfully",
+        data=UserOut.model_validate(current_user),
+    )
 

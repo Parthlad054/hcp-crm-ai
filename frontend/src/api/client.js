@@ -73,14 +73,15 @@ apiClient.interceptors.response.use(
       }
 
       try {
-        const { data } = await axios.post(
+        const { data: resBody } = await axios.post(
           `${import.meta.env.VITE_API_BASE_URL || "http://localhost:8000"}/auth/refresh`,
           { refresh_token: refreshToken },
           { headers: { "Content-Type": "application/json" } }
         );
-        store.dispatch(setTokens(data));
-        processQueue(null, data.access_token);
-        originalRequest.headers["Authorization"] = `Bearer ${data.access_token}`;
+        const tokenData = resBody?.data || resBody;
+        store.dispatch(setTokens(tokenData));
+        processQueue(null, tokenData.access_token);
+        originalRequest.headers["Authorization"] = `Bearer ${tokenData.access_token}`;
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);

@@ -8,10 +8,10 @@ export const loginUser = createAsyncThunk(
   async ({ email, password }, { rejectWithValue }) => {
     try {
       const { data } = await apiClient.post("/auth/login", { email, password });
-      return data;
+      return data?.data || data;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.detail || "Login failed. Please try again."
+        err.response?.data?.message || err.response?.data?.detail || "Login failed. Please try again."
       );
     }
   }
@@ -22,10 +22,10 @@ export const registerUser = createAsyncThunk(
   async (payload, { rejectWithValue }) => {
     try {
       const { data } = await apiClient.post("/auth/register", payload);
-      return data;
+      return data?.data || data;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.detail || "Registration failed. Please try again."
+        err.response?.data?.message || err.response?.data?.detail || "Registration failed. Please try again."
       );
     }
   }
@@ -39,7 +39,7 @@ export const refreshAccessToken = createAsyncThunk(
       const { data } = await apiClient.post("/auth/refresh", {
         refresh_token: refreshToken,
       });
-      return data;
+      return data?.data || data;
     } catch (err) {
       return rejectWithValue("Session expired. Please log in again.");
     }
@@ -51,9 +51,11 @@ export const fetchCurrentUser = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const { data } = await apiClient.get("/auth/me");
-      return data;
+      return data?.data || data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.detail || "Failed to fetch user");
+      return rejectWithValue(
+        err.response?.data?.message || err.response?.data?.detail || "Failed to fetch user"
+      );
     }
   }
 );

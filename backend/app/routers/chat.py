@@ -1,14 +1,20 @@
 import asyncio
+import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage
 
 from app.agent.graph import graph
 from app.auth.security import get_current_user
+from app.config import settings
 from app.limiter import limiter
 from app.models.user import User
+
+from app.schemas.common import ApiResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -42,7 +48,7 @@ class ChatResponse(BaseModel):
     session_id: str | None = None
 
 
-@router.post("/", response_model=ChatResponse)
+@router.post("/", response_model=ApiResponse[ChatResponse])
 @limiter.limit("30/minute")
 async def chat(
     request: Request,
@@ -70,15 +76,37 @@ async def chat(
 
     # graph.invoke is synchronous (LangGraph); run in a thread pool so we
     # never block the uvicorn async event loop for other concurrent requests.
-    final_state = await asyncio.to_thread(graph.invoke, state)
+    try:
+        final_state = await asyncio.to_thread(graph.invoke, state)
+    except Exception as exc:
+        logger.error("Error during LangGraph agent execution: %s", exc, exc_info=True)
+        err_msg = str(exc)
+        if "model_not_found" in err_msg or "NotFoundError" in type(exc).__name__:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Groq model error: The configured model '{settings.GROQ_MODEL}' was not found or is unavailable. Please verify GROQ_MODEL in your .env file.",
+            )
+        elif "authentication" in err_msg.lower() or "AuthenticationError" in type(exc).__name__:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Groq authentication failed. Please verify GROQ_API_KEY in your .env file.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"AI Agent error: {err_msg}",
+        )
 
     reply = final_state.get("reply")
     if not reply:
         final_message = final_state["messages"][-1]
         reply = getattr(final_message, "content", "") or ""
 
-    return ChatResponse(
-        reply=reply,
-        form_data=final_state.get("form_data"),
-        session_id=payload.session_id,
+    return ApiResponse(
+        statusCode=200,
+        message="Chat response generated successfully",
+        data=ChatResponse(
+            reply=reply,
+            form_data=final_state.get("form_data"),
+            session_id=payload.session_id,
+        ),
     )

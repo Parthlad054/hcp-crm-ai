@@ -6,11 +6,12 @@ export const sendChatMessage = createAsyncThunk(
   "chat/sendMessage",
   async ({ message, sessionId, currentFormState }, { dispatch, rejectWithValue }) => {
     try {
-      const { data } = await apiClient.post("/chat/", {
+      const { data: resBody } = await apiClient.post("/chat/", {
         message,
         session_id: sessionId,
         current_form_state: currentFormState ?? null,
       });
+      const data = resBody?.data || resBody;
 
       if (data.form_data != null) {
         dispatch(mergeFormData(data.form_data));
@@ -19,7 +20,7 @@ export const sendChatMessage = createAsyncThunk(
       return data;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.detail || err.message || "Failed to send message"
+        err.response?.data?.message || err.response?.data?.detail || err.message || "Failed to send message"
       );
     }
   }
