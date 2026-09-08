@@ -1,6 +1,7 @@
 """
-limiter.py — Shared slowapi rate-limiter instance.
+core/rate_limit.py — Shared slowapi rate-limiter instance.
 
+Moved from app/limiter.py.
 Import `limiter` into any router that needs @limiter.limit(...).
 The app must register it via:
     app.state.limiter = limiter

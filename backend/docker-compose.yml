@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL Database ────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: hcp_crm_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hcp_crm}
+      POSTGRES_USER: ${POSTGRES_USER:-hcp_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hcp_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hcp_user} -d ${POSTGRES_DB:-hcp_crm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI Backend ────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hcp_crm_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Override DATABASE_URL to use the Docker service name instead of localhost
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hcp_user}:${POSTGRES_PASSWORD:-hcp_password}@db:5432/${POSTGRES_DB:-hcp_crm}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Mount source for hot reload in development (remove in production)
+      - .:/app
+
+volumes:
+  postgres_data:
+    driver: local

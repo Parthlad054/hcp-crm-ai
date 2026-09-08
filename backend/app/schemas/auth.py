@@ -2,17 +2,9 @@ import re
 from typing import Optional
 from pydantic import BaseModel, EmailStr, field_validator
 
+# UserOut lives in schemas/user.py — re-exported here for backwards compatibility.
+from app.schemas.user import UserOut as UserOut  # noqa: F401
 
-# ── User output ────────────────────────────────────────────────────────────────
-
-class UserOut(BaseModel):
-    id: int
-    name: str
-    email: EmailStr
-    contact_number: str
-    is_active: bool
-
-    model_config = {"from_attributes": True}
 
 
 # ── Registration ─────────────────────────────────────────────────────────────

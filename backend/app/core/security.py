@@ -1,6 +1,8 @@
 """
-security.py — JWT token helpers, password hashing, and the
+core/security.py — JWT token helpers, password hashing, and the
 get_current_user FastAPI dependency.
+
+Moved from app/auth/security.py.
 """
 from datetime import datetime, timedelta, timezone
 from typing import Optional

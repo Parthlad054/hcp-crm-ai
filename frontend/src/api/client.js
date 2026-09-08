@@ -3,7 +3,7 @@ import { store } from "../redux/store";
 import { logout, setTokens } from "../redux/slices/authSlice";
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1",
   headers: {
     "Content-Type": "application/json",
   },
@@ -74,7 +74,7 @@ apiClient.interceptors.response.use(
 
       try {
         const { data: resBody } = await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL || "http://localhost:8000"}/auth/refresh`,
+          `${import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1"}/auth/refresh`,
           { refresh_token: refreshToken },
           { headers: { "Content-Type": "application/json" } }
         );

@@ -1,17 +1,22 @@
+"""
+api/v1/chat.py — HTTP handler for the AI chat endpoint.
+
+Thin layer: validates request, invokes the LangGraph agent via asyncio.to_thread,
+and returns ApiResponse. No business logic lives here — the agent graph handles it.
+"""
 import asyncio
 import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage
+from pydantic import BaseModel, Field
 
 from app.agent.graph import graph
-from app.auth.security import get_current_user
 from app.config import settings
-from app.limiter import limiter
+from app.core.rate_limit import limiter
+from app.core.security import get_current_user
 from app.models.user import User
-
 from app.schemas.common import ApiResponse
 
 logger = logging.getLogger(__name__)

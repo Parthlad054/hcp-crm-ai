@@ -8,11 +8,20 @@ export const createInteraction = createAsyncThunk(
   async (payload, { rejectWithValue }) => {
     try {
       const { data } = await apiClient.post("/interactions/", payload);
-      return data;
+      return data?.data || data;
     } catch (err) {
-      return rejectWithValue(
-        err.response?.data?.detail || err.message || "Failed to log interaction"
-      );
+      const detail =
+        err.response?.data?.detail ||
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to log interaction";
+      const errorMsg =
+        typeof detail === "string"
+          ? detail
+          : Array.isArray(detail)
+          ? detail.map((d) => (d?.msg ? d.msg : JSON.stringify(d))).join("; ")
+          : JSON.stringify(detail);
+      return rejectWithValue(errorMsg);
     }
   }
 );

@@ -1,5 +1,7 @@
 """
-auth/email.py — Async SMTP email helper for password-reset messages.
+integrations/email_client.py — Async SMTP email helper for password-reset messages.
+
+Moved from app/auth/email.py.
 Uses aiosmtplib with STARTTLS (port 587).
 
 Template rendering uses stdlib `string.Template` (dollar-sign placeholders)

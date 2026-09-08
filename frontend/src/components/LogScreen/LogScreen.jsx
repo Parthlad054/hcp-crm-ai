@@ -18,13 +18,17 @@ const LogScreen = () => {
   const isAiFilled = form.isAiFilled;
 
   const [submitStatus, setSubmitStatus] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
   const [disambiguateInfo, setDisambiguateInfo] = useState("");
   const [chatResetKey, setChatResetKey] = useState(0);
 
   // Auto-dismiss status banner after 4 seconds
   useEffect(() => {
     if (submitStatus) {
-      const timer = setTimeout(() => setSubmitStatus(null), 4000);
+      const timer = setTimeout(() => {
+        setSubmitStatus(null);
+        setErrorMessage("");
+      }, 4000);
       return () => clearTimeout(timer);
     }
   }, [submitStatus]);
@@ -35,6 +39,7 @@ const LogScreen = () => {
       setFormField({ name, value: type === "checkbox" ? checked : value })
     );
     setSubmitStatus(null);
+    setErrorMessage("");
   };
 
   // Convert samples_given object to a user-editable text string
@@ -57,12 +62,19 @@ const LogScreen = () => {
     }
     dispatch(setFormField({ name: "samples_given", value: dict }));
     setSubmitStatus(null);
+    setErrorMessage("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.hcp_name.trim()) {
       setSubmitStatus("no_hcp");
+      return;
+    }
+
+    if (!form.interaction_date) {
+      setErrorMessage("Please select an interaction date.");
+      setSubmitStatus("error");
       return;
     }
 
@@ -73,12 +85,19 @@ const LogScreen = () => {
 
     try {
       const cleanHcpName = form.hcp_name.trim();
-      const { data: hcpResults } = await apiClient.get("/hcps/", {
+      const resHcp = await apiClient.get("/hcps/", {
         params: { q: cleanHcpName },
       });
 
+      // API returns ApiResponse: { statusCode, message, data: [...] }
+      const hcpResults = Array.isArray(resHcp.data?.data)
+        ? resHcp.data.data
+        : Array.isArray(resHcp.data)
+        ? resHcp.data
+        : [];
+
       const exactMatches = hcpResults.filter(
-        (h) => h.name.trim().toLowerCase() === cleanHcpName.toLowerCase()
+        (h) => h?.name?.trim().toLowerCase() === cleanHcpName.toLowerCase()
       );
 
       let hcpId;
@@ -91,10 +110,17 @@ const LogScreen = () => {
         setSubmitStatus("multiple_hcps");
         return;
       } else {
-        const { data: newHcp } = await apiClient.post("/hcps/", {
+        const resNewHcp = await apiClient.post("/hcps/", {
           name: cleanHcpName,
         });
-        hcpId = newHcp.id;
+        const newHcp = resNewHcp.data?.data || resNewHcp.data;
+        hcpId = newHcp?.id;
+      }
+
+      if (!hcpId) {
+        setErrorMessage("Could not identify or create the specified HCP.");
+        setSubmitStatus("error");
+        return;
       }
 
       const repId = currentUser?.email || currentUser?.name || currentUser?.id || "demo_rep";
@@ -105,16 +131,26 @@ const LogScreen = () => {
         interaction_date: form.interaction_date,
         channel: form.channel,
         sentiment: form.sentiment,
-        topics_discussed: form.topics_discussed
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
-        products_discussed: form.products_discussed
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
+        topics_discussed: typeof form.topics_discussed === "string"
+          ? form.topics_discussed
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : Array.isArray(form.topics_discussed)
+          ? form.topics_discussed
+          : [],
+        products_discussed: typeof form.products_discussed === "string"
+          ? form.products_discussed
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : Array.isArray(form.products_discussed)
+          ? form.products_discussed
+          : [],
         summary: form.summary,
-        samples_given: form.samples_given || {},
+        samples_given: typeof form.samples_given === "object" && form.samples_given !== null
+          ? form.samples_given
+          : {},
         raw_input: "Manual / AI-Assisted Entry",
         source: "form",
         follow_up_required: form.follow_up_required,
@@ -124,13 +160,32 @@ const LogScreen = () => {
       const result = await dispatch(createInteraction(payload));
       if (createInteraction.fulfilled.match(result)) {
         setSubmitStatus("success");
+        setErrorMessage("");
         dispatch(resetForm());
         dispatch(resetSession());
         setChatResetKey((k) => k + 1);
       } else {
+        setErrorMessage(
+          typeof result.payload === "string"
+            ? result.payload
+            : "Failed to save. Please try again."
+        );
         setSubmitStatus("error");
       }
-    } catch {
+    } catch (err) {
+      console.error("Error logging interaction:", err);
+      const detail =
+        err.response?.data?.detail ||
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to save. Please try again.";
+      const errorMsg =
+        typeof detail === "string"
+          ? detail
+          : Array.isArray(detail)
+          ? detail.map((d) => (d?.msg ? d.msg : JSON.stringify(d))).join("; ")
+          : JSON.stringify(detail);
+      setErrorMessage(errorMsg);
       setSubmitStatus("error");
     }
   };
@@ -301,7 +356,7 @@ const LogScreen = () => {
           )}
           {submitStatus === "error" && (
             <div className="form-status error">
-              ❌ Failed to save. Please try again.
+              ❌ {errorMessage || "Failed to save. Please try again."}
             </div>
           )}
           {submitStatus === "no_hcp" && (

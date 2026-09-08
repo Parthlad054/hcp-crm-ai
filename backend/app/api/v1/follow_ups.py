@@ -1,15 +1,20 @@
+"""
+api/v1/follow_ups.py — HTTP handlers for follow-up endpoints.
+
+Thin layer: validates request, delegates to follow_up_service, returns ApiResponse.
+"""
 from typing import List, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.auth.security import get_current_user
-from app.database import get_db
-from app.models.follow_up import FollowUp
+from app.core.security import get_current_user
+from app.dependencies import get_db
 from app.models.user import User
 from app.schemas.common import ApiResponse
 from app.schemas.follow_up import FollowUpCreate, FollowUpOut
+from app.services import follow_up_service
 
 router = APIRouter()
 
@@ -29,15 +34,8 @@ def create_follow_up(
     current_user: User = Depends(get_current_user),
 ):
     """Schedule a follow-up for an existing interaction."""
-    follow_up = FollowUp(**payload.model_dump())
-    db.add(follow_up)
-    db.commit()
-    db.refresh(follow_up)
-    return ApiResponse(
-        statusCode=201,
-        message="Follow-up scheduled successfully",
-        data=FollowUpOut.model_validate(follow_up),
-    )
+    data = follow_up_service.create_follow_up(db, payload)
+    return ApiResponse(statusCode=201, message="Follow-up scheduled successfully", data=data)
 
 
 @router.get("/{interaction_id}", response_model=ApiResponse[List[FollowUpOut]])
@@ -47,16 +45,8 @@ def get_follow_ups(
     current_user: User = Depends(get_current_user),
 ):
     """Return all follow-ups linked to a specific interaction."""
-    rows = (
-        db.query(FollowUp)
-        .filter(FollowUp.interaction_id == interaction_id)
-        .all()
-    )
-    return ApiResponse(
-        statusCode=200,
-        message="Follow-ups fetched successfully",
-        data=[FollowUpOut.model_validate(r) for r in rows],
-    )
+    data = follow_up_service.list_by_interaction(db, interaction_id)
+    return ApiResponse(statusCode=200, message="Follow-ups fetched successfully", data=data)
 
 
 @router.patch("/{follow_up_id}/status", response_model=ApiResponse[FollowUpOut])
@@ -70,15 +60,5 @@ def update_status(
     Update the status of a follow-up.
     Accepts a JSON body: {"status": "pending" | "completed" | "cancelled"}.
     """
-    fu = db.query(FollowUp).filter(FollowUp.id == follow_up_id).first()
-    if not fu:
-        raise HTTPException(status_code=404, detail="Follow-up not found")
-    fu.status = payload.status
-    db.commit()
-    db.refresh(fu)
-    return ApiResponse(
-        statusCode=200,
-        message="Follow-up status updated successfully",
-        data=FollowUpOut.model_validate(fu),
-    )
-
+    data = follow_up_service.update_status(db, follow_up_id, payload.status)
+    return ApiResponse(statusCode=200, message="Follow-up status updated successfully", data=data)
