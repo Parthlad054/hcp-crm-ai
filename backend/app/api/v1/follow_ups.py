@@ -34,7 +34,7 @@ def create_follow_up(
     current_user: User = Depends(get_current_user),
 ):
     """Schedule a follow-up for an existing interaction."""
-    data = follow_up_service.create_follow_up(db, payload)
+    data = follow_up_service.create_follow_up(db, payload, user_id=current_user.id)
     return ApiResponse(statusCode=201, message="Follow-up scheduled successfully", data=data)
 
 
@@ -60,5 +60,7 @@ def update_status(
     Update the status of a follow-up.
     Accepts a JSON body: {"status": "pending" | "completed" | "cancelled"}.
     """
-    data = follow_up_service.update_status(db, follow_up_id, payload.status)
+    data = follow_up_service.update_status(
+        db, follow_up_id, payload.status, user_id=current_user.id
+    )
     return ApiResponse(statusCode=200, message="Follow-up status updated successfully", data=data)

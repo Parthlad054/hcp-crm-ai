@@ -22,20 +22,28 @@ def parse_tool_envelope(content: str) -> tuple[str, dict[str, Any] | None]:
     return content, None
 
 
+def _format_dmy(d: Any) -> str | None:
+    if not d:
+        return None
+    if hasattr(d, "strftime"):
+        return d.strftime("%d-%m-%Y")
+    return str(d)
+
+
 def extracted_to_form_data(extracted, *, channel: str = "in-person", summary: str | None = None) -> dict[str, Any]:
     """Map InteractionExtraction (or similar) into the API form_data shape."""
     follow_up_date = getattr(extracted, "follow_up_date", None)
     interaction_date = getattr(extracted, "interaction_date", None)
     data: dict[str, Any] = {
         "hcp_name": getattr(extracted, "hcp_name", None),
-        "date": str(interaction_date) if interaction_date else None,
+        "date": _format_dmy(interaction_date),
         "channel": channel,
         "products_discussed": list(getattr(extracted, "products_discussed", None) or []),
         "topics_discussed": list(getattr(extracted, "topics_discussed", None) or []),
         "sentiment": getattr(extracted, "sentiment", None),
         "samples_given": dict(getattr(extracted, "samples_given", None) or {}),
         "follow_up_required": bool(getattr(extracted, "follow_up_required", False)),
-        "follow_up_date": str(follow_up_date) if follow_up_date else None,
+        "follow_up_date": _format_dmy(follow_up_date),
     }
     if summary is not None:
         data["summary"] = summary

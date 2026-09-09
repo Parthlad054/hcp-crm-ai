@@ -61,7 +61,7 @@ def schedule_follow_up_tool(hcp_name: str, follow_up_detail: str) -> str:
                 None,
             )
 
-        today_str = datetime.date.today().strftime("%Y-%m-%d")
+        today_str = datetime.date.today().strftime("%d-%m-%Y")
         prompt = (
             f"Today is {today_str}. The user said: '{follow_up_detail}'. "
             "Extract the absolute due date and a concise note."
@@ -88,12 +88,13 @@ def schedule_follow_up_tool(hcp_name: str, follow_up_detail: str) -> str:
 
         db.commit()
 
+        dmy_due = extraction.due_date.strftime("%d-%m-%Y") if hasattr(extraction.due_date, "strftime") else str(extraction.due_date)
         form_data = {
             "follow_up_required": True,
-            "follow_up_date": str(extraction.due_date),
+            "follow_up_date": dmy_due,
         }
         return tool_envelope(
-            f"Follow-up for {target_hcp.name} scheduled for {extraction.due_date}. "
+            f"Follow-up for {target_hcp.name} scheduled for {dmy_due}. "
             f"Note: {extraction.note}",
             form_data,
         )

@@ -33,7 +33,7 @@ def fetch_hcp_history_tool(hcp_name: str) -> str:
 
         interactions = (
             db.query(Interaction)
-            .filter(Interaction.hcp_id == target_hcp.id)
+            .filter(Interaction.hcp_id == target_hcp.id, Interaction.deleted_at.is_(None))
             .order_by(Interaction.interaction_date.desc())
             .all()
         )
@@ -41,16 +41,17 @@ def fetch_hcp_history_tool(hcp_name: str) -> str:
         open_follow_ups = (
             db.query(FollowUp)
             .join(Interaction)
-            .filter(Interaction.hcp_id == target_hcp.id, FollowUp.status == "pending")
+            .filter(Interaction.hcp_id == target_hcp.id, Interaction.deleted_at.is_(None), FollowUp.status == "pending")
             .all()
         )
 
         history = []
         sentiments = []
         for ix in interactions:
+            d_str = ix.interaction_date.strftime("%d-%m-%Y") if hasattr(ix.interaction_date, "strftime") else str(ix.interaction_date)
             history.append(
                 {
-                    "date": str(ix.interaction_date),
+                    "date": d_str,
                     "summary": ix.summary or "No summary",
                     "topics": ix.topics_discussed,
                     "sentiment": ix.sentiment,
@@ -60,14 +61,17 @@ def fetch_hcp_history_tool(hcp_name: str) -> str:
                 sentiments.append(ix.sentiment)
 
         follow_ups_data = [
-            {"due_date": str(fu.due_date) if fu.due_date else None, "note": fu.note}
+            {
+                "due_date": fu.due_date.strftime("%d-%m-%Y") if (fu.due_date and hasattr(fu.due_date, "strftime")) else (str(fu.due_date) if fu.due_date else None),
+                "note": fu.note,
+            }
             for fu in open_follow_ups
         ]
 
         last_visit_date = (
-            str(target_hcp.last_interaction_date)
-            if target_hcp.last_interaction_date
-            else "Never"
+            target_hcp.last_interaction_date.strftime("%d-%m-%Y")
+            if (target_hcp.last_interaction_date and hasattr(target_hcp.last_interaction_date, "strftime"))
+            else (str(target_hcp.last_interaction_date) if target_hcp.last_interaction_date else "Never")
         )
 
         form_data = {"hcp_name": target_hcp.name}

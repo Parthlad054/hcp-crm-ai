@@ -1,14 +1,14 @@
-from datetime import date
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+from app.schemas.common import DMYDate, FullAuditOut
 
 
 class HCPBase(BaseModel):
     name: str
     specialty: Optional[str] = None
     hospital_affiliation: Optional[str] = None
-    last_interaction_date: Optional[date] = None
+    last_interaction_date: Optional[DMYDate] = None
     notes: Optional[str] = None
 
 
@@ -16,8 +16,7 @@ class HCPCreate(HCPBase):
     pass
 
 
-class HCPOut(HCPBase):
+class HCPOut(HCPBase, FullAuditOut):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

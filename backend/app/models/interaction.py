@@ -5,9 +5,10 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.sql import func
 
 from app.database import Base
+from app.models.base import FullAuditMixin
 
 
-class Interaction(Base):
+class Interaction(Base, FullAuditMixin):
     __tablename__ = "interactions"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -24,5 +25,3 @@ class Interaction(Base):
     raw_input = Column(Text)                              # original chat / form input
     summary = Column(Text)                                # LLM-generated summary
     source = Column(String(20))                           # form / chat
-    created_at = Column(TIMESTAMP, server_default=func.now())
-    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())

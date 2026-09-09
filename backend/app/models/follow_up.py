@@ -1,9 +1,10 @@
 from sqlalchemy import Column, Integer, String, Date, Text, ForeignKey
 
 from app.database import Base
+from app.models.base import TimestampAuditMixin
 
 
-class FollowUp(Base):
+class FollowUp(Base, TimestampAuditMixin):
     __tablename__ = "follow_ups"
 
     id = Column(Integer, primary_key=True, index=True)

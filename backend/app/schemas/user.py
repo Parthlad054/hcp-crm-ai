@@ -1,10 +1,9 @@
 """
 schemas/user.py — Pydantic schemas for the User domain.
-
-UserOut was previously defined in schemas/auth.py. Moving it here
-so the user schema is not entangled with auth request/response schemas.
 """
-from pydantic import BaseModel, EmailStr
+from datetime import datetime
+from typing import Optional
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class UserOut(BaseModel):
@@ -14,5 +13,7 @@ class UserOut(BaseModel):
     email: EmailStr
     contact_number: str
     is_active: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)

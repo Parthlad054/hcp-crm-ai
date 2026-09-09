@@ -1,9 +1,10 @@
 from sqlalchemy import Column, Integer, String, Date, Text
 
 from app.database import Base
+from app.models.base import FullAuditMixin
 
 
-class HCP(Base):
+class HCP(Base, FullAuditMixin):
     __tablename__ = "hcps"
 
     id = Column(Integer, primary_key=True, index=True)

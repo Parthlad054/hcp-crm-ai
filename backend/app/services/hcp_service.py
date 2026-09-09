@@ -4,7 +4,7 @@ services/hcp_service.py — Business logic for HCP management.
 Extracted from app/routers/hcps.py. Owns the TTL cache for HCP searches.
 """
 import threading
-from typing import List
+from typing import List, Optional
 
 from cachetools import TTLCache
 from fastapi import HTTPException
@@ -24,14 +24,14 @@ def _cache_key(q: str, skip: int, limit: int) -> str:
 
 
 def invalidate_hcp_cache() -> None:
-    """Clear the entire cache when HCP data changes (e.g. after create)."""
+    """Clear the entire cache when HCP data changes (e.g. after create/delete)."""
     with _cache_lock:
         _hcp_cache.clear()
 
 
 def list_hcps(db: Session, q: str = "", skip: int = 0, limit: int = 50) -> List[HCPOut]:
     """
-    List all HCPs; optionally filter by name for autocomplete.
+    List all active HCPs; optionally filter by name for autocomplete.
     Results are cached for 60 seconds per (q, skip, limit) combination.
     """
     key = _cache_key(q, skip, limit)
@@ -49,15 +49,23 @@ def list_hcps(db: Session, q: str = "", skip: int = 0, limit: int = 50) -> List[
 
 
 def get_hcp(db: Session, hcp_id: int) -> HCPOut:
-    """Fetch a single HCP by ID. Raises 404 if not found."""
+    """Fetch a single active HCP by ID. Raises 404 if not found or soft-deleted."""
     hcp = hcp_repository.get_by_id(db, hcp_id)
     if not hcp:
         raise HTTPException(status_code=404, detail="HCP not found")
     return HCPOut.model_validate(hcp)
 
 
-def create_hcp(db: Session, payload: HCPCreate) -> HCPOut:
+def create_hcp(db: Session, payload: HCPCreate, user_id: Optional[int] = None) -> HCPOut:
     """Create a new HCP record and invalidate the search cache."""
-    hcp = hcp_repository.create(db, payload.model_dump())
-    invalidate_hcp_cache()  # ensure next search reflects the new record
+    hcp = hcp_repository.create(db, payload.model_dump(), user_id=user_id)
+    invalidate_hcp_cache()
     return HCPOut.model_validate(hcp)
+
+
+def delete_hcp(db: Session, hcp_id: int, user_id: Optional[int] = None) -> None:
+    """Soft-delete an HCP by ID. Raises 404 if not found."""
+    success = hcp_repository.soft_delete(db, hcp_id, user_id=user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="HCP not found")
+    invalidate_hcp_cache()

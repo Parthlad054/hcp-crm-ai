@@ -44,7 +44,7 @@ def list_all_interactions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all interactions (dev / debug use). Supports pagination via skip & limit."""
+    """List all active interactions (dev / debug use). Supports pagination via skip & limit."""
     data = interaction_service.list_all_interactions(db, skip=skip, limit=limit)
     return ApiResponse(statusCode=200, message="Interactions fetched successfully", data=data)
 
@@ -57,7 +57,7 @@ def get_interactions_for_hcp(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Return all interactions for a given HCP, newest first. Supports pagination."""
+    """Return all active interactions for a given HCP, newest first. Supports pagination."""
     data = interaction_service.list_by_hcp(db, hcp_id=hcp_id, skip=skip, limit=limit)
     return ApiResponse(statusCode=200, message="HCP interactions fetched successfully", data=data)
 
@@ -70,5 +70,16 @@ def patch_interaction(
     current_user: User = Depends(get_current_user),
 ):
     """Partial update — only supplied fields are written."""
-    data = interaction_service.patch_interaction(db, interaction_id, payload)
+    data = interaction_service.patch_interaction(db, interaction_id, payload, current_user=current_user)
     return ApiResponse(statusCode=200, message="Interaction updated successfully", data=data)
+
+
+@router.delete("/{interaction_id}", response_model=ApiResponse[None])
+def delete_interaction(
+    interaction_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Soft delete an interaction."""
+    interaction_service.delete_interaction(db, interaction_id, current_user=current_user)
+    return ApiResponse(statusCode=200, message="Interaction deleted successfully", data=None)

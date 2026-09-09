@@ -27,7 +27,7 @@ def list_hcps(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all HCPs; optionally filter by name for autocomplete. Results are cached for 60s."""
+    """List all active HCPs; optionally filter by name for autocomplete. Results are cached for 60s."""
     data = hcp_service.list_hcps(db, q=q, skip=skip, limit=limit)
     return ApiResponse(statusCode=200, message="HCPs fetched successfully", data=data)
 
@@ -38,8 +38,8 @@ def create_hcp(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create a new HCP record. Invalidates the search cache."""
-    data = hcp_service.create_hcp(db, payload)
+    """Create a new HCP record with audit attribution. Invalidates the search cache."""
+    data = hcp_service.create_hcp(db, payload, user_id=current_user.id)
     return ApiResponse(statusCode=201, message="HCP created successfully", data=data)
 
 
@@ -49,6 +49,17 @@ def get_hcp(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Fetch a single HCP by ID."""
+    """Fetch a single active HCP by ID."""
     data = hcp_service.get_hcp(db, hcp_id)
     return ApiResponse(statusCode=200, message="HCP fetched successfully", data=data)
+
+
+@router.delete("/{hcp_id}", response_model=ApiResponse[None])
+def delete_hcp(
+    hcp_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Soft delete an HCP by ID."""
+    hcp_service.delete_hcp(db, hcp_id, user_id=current_user.id)
+    return ApiResponse(statusCode=200, message="HCP deleted successfully", data=None)

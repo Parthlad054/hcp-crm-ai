@@ -4,7 +4,7 @@ services/follow_up_service.py — Business logic for follow-up management.
 Extracted from app/routers/follow_ups.py.
 """
 import logging
-from typing import List
+from typing import List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -15,9 +15,11 @@ from app.schemas.follow_up import FollowUpCreate, FollowUpOut
 logger = logging.getLogger(__name__)
 
 
-def create_follow_up(db: Session, payload: FollowUpCreate) -> FollowUpOut:
-    """Schedule a follow-up for an existing interaction."""
-    follow_up = follow_up_repository.create(db, payload.model_dump())
+def create_follow_up(
+    db: Session, payload: FollowUpCreate, user_id: Optional[int] = None
+) -> FollowUpOut:
+    """Schedule a follow-up for an existing interaction with creator attribution."""
+    follow_up = follow_up_repository.create(db, payload.model_dump(), user_id=user_id)
     return FollowUpOut.model_validate(follow_up)
 
 
@@ -27,7 +29,12 @@ def list_by_interaction(db: Session, interaction_id: int) -> List[FollowUpOut]:
     return [FollowUpOut.model_validate(r) for r in rows]
 
 
-def update_status(db: Session, follow_up_id: int, new_status: str) -> FollowUpOut:
+def update_status(
+    db: Session,
+    follow_up_id: int,
+    new_status: str,
+    user_id: Optional[int] = None,
+) -> FollowUpOut:
     """
     Update the status of a follow-up.
     Raises 404 if the follow-up does not exist.
@@ -35,5 +42,5 @@ def update_status(db: Session, follow_up_id: int, new_status: str) -> FollowUpOu
     fu = follow_up_repository.get_by_id(db, follow_up_id)
     if not fu:
         raise HTTPException(status_code=404, detail="Follow-up not found")
-    fu = follow_up_repository.update_status(db, fu, new_status)
+    fu = follow_up_repository.update_status(db, fu, new_status, user_id=user_id)
     return FollowUpOut.model_validate(fu)

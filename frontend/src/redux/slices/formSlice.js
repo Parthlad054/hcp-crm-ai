@@ -13,6 +13,28 @@ const emptyForm = {
   follow_up_date: "",
 };
 
+/** Convert DD-MM-YYYY to YYYY-MM-DD for native HTML5 date inputs. */
+function toInputDate(d) {
+  if (!d) return d;
+  if (typeof d !== "string") return String(d);
+  const match = d.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+  if (match) {
+    return `${match[3]}-${match[2]}-${match[1]}`;
+  }
+  return d;
+}
+
+/** Format YYYY-MM-DD to DD-MM-YYYY for display / API payload. */
+export function formatDmy(isoDate) {
+  if (!isoDate) return "";
+  if (typeof isoDate !== "string") return String(isoDate);
+  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return `${match[3]}-${match[2]}-${match[1]}`;
+  }
+  return isoDate;
+}
+
 /** Map API form_data (uses `date`) into local form fields. Only set keys that are present. */
 function applyFormData(state, data) {
   if (!data || typeof data !== "object") return;
@@ -20,7 +42,7 @@ function applyFormData(state, data) {
   if ("hcp_name" in data && data.hcp_name != null) state.hcp_name = data.hcp_name;
   if ("date" in data || "interaction_date" in data) {
     const d = data.date ?? data.interaction_date;
-    if (d != null) state.interaction_date = d;
+    if (d != null) state.interaction_date = toInputDate(d);
   }
   if ("channel" in data && data.channel != null) state.channel = data.channel;
   if ("sentiment" in data && data.sentiment != null) state.sentiment = data.sentiment;
@@ -43,7 +65,7 @@ function applyFormData(state, data) {
     state.follow_up_required = data.follow_up_required;
   }
   if ("follow_up_date" in data) {
-    state.follow_up_date = data.follow_up_date || "";
+    state.follow_up_date = toInputDate(data.follow_up_date) || "";
   }
 }
 

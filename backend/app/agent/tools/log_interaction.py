@@ -24,8 +24,8 @@ def log_interaction_tool(text: str) -> str:
     Provide the raw free text containing details about the interaction.
     Returns a reply plus structured form_data for the UI.
     """
-    today_str = datetime.date.today().strftime("%Y-%m-%d")
-    prompt = f"Today is {today_str}. Extract the interaction details from the following text:\n\n{text}"
+    today_str = datetime.date.today().strftime("%d-%m-%Y")
+    prompt = f"Today is {today_str}. Extract the interaction details from the following text (format dates as DD-MM-YYYY):\n\n{text}"
 
     try:
         extracted: InteractionExtraction = _structured_llm.invoke(prompt)
